@@ -1,5 +1,33 @@
 import Order from '../models/Order.js';
+import Settings from '../models/Settings.js';
 import { isValidBdPhone } from '../utils/phone.js';
+import { sendAdminOrderEmail } from '../utils/email.js';
+import { sendBdBulkSms } from '../utils/sms.js';
+
+/**
+ * Sends the new-order SMS to the admin mobile configured in Settings
+ * (falls back to the ADMIN_PHONE env variable). Never throws.
+ */
+async function sendAdminOrderSms(order) {
+  try {
+    const settings = await Settings.getGlobal();
+    const to = settings.adminMobile || process.env.ADMIN_PHONE;
+    if (!to) {
+      console.warn('[SMS] No admin mobile configured in settings or ADMIN_PHONE. Skipping admin SMS.');
+      return;
+    }
+
+    let message = `নতুন Milkimom অর্ডার\n\nনাম: ${order.customerName}\nফোন: ${order.phone}\nজেলা: ${order.district}\nথানা: ${order.thana}\nফ্লেভার: ${order.flavour}\nপেমেন্ট: ${order.paymentStatus === 'Paid' ? 'bKash' : 'Cash on Delivery'}`;
+    if (order.transactionId) {
+      message += `\nTrx ID: ${order.transactionId}`;
+    }
+    message += `\nমোট: ৳${order.price}`;
+
+    await sendBdBulkSms(to, message, 'admin_notification');
+  } catch (err) {
+    console.error('[SMS Error] Failed to send admin order SMS:', err.message);
+  }
+}
 
 /**
  * @route   POST /api/orders
@@ -55,6 +83,10 @@ export async function createOrder(req, res, next) {
       orderTime: orderTime ? new Date(orderTime) : new Date(),
       status: 'Pending',
     });
+
+    // Fire-and-forget: notification failures must not block order confirmation
+    sendAdminOrderEmail(order);
+    sendAdminOrderSms(order);
 
     res.status(201).json({ success: true, data: order });
   } catch (err) {

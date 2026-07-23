@@ -4,6 +4,9 @@ import dotenv from 'dotenv';
 import { connectDB } from './config/db.js';
 import orderRoutes from './routes/orderRoutes.js';
 import smsRoutes from './routes/smsRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import adminUserRoutes from './routes/adminUserRoutes.js';
+import settingsRoutes from './routes/settingsRoutes.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -39,6 +42,9 @@ app.get('/api/health', (req, res) => {
 // Routes
 app.use('/api/orders', orderRoutes);
 app.use('/api/sms', smsRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/admin-users', adminUserRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // 404 + error handling
 app.use(notFound);
