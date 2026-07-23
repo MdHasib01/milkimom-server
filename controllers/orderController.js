@@ -1,0 +1,165 @@
+import Order from '../models/Order.js';
+import { isValidBdPhone } from '../utils/phone.js';
+
+/**
+ * @route   POST /api/orders
+ * @desc    Create a new order
+ */
+export async function createOrder(req, res, next) {
+  try {
+    const {
+      product,
+      customerName,
+      phone,
+      alternativePhone,
+      district,
+      thana,
+      address,
+      flavour,
+      paymentMethod,
+      price,
+      transactionId,
+      screenshotUploaded,
+      pageUrl,
+      orderTime,
+    } = req.body;
+
+    if (!customerName || !phone || !district || !thana || !address) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: customerName, phone, district, thana, address',
+      });
+    }
+
+    if (!isValidBdPhone(phone)) {
+      return res.status(400).json({ success: false, error: 'Invalid Bangladeshi phone number' });
+    }
+
+    const isPrepaid = paymentMethod === 'Paid' || paymentMethod === 'bKash';
+
+    const order = await Order.create({
+      product: product || 'Milkimom Complete Dose',
+      customerName,
+      phone,
+      alternativePhone: alternativePhone || '',
+      district,
+      thana,
+      address,
+      flavour: flavour || 'Dark Chocolate',
+      paymentMethod: paymentMethod || 'COD',
+      paymentStatus: isPrepaid ? 'Paid' : 'COD',
+      price,
+      transactionId: transactionId || '',
+      screenshotUploaded: Boolean(screenshotUploaded),
+      pageUrl: pageUrl || '',
+      orderTime: orderTime ? new Date(orderTime) : new Date(),
+      status: 'Pending',
+    });
+
+    res.status(201).json({ success: true, data: order });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @route   GET /api/orders
+ * @desc    List orders (newest first). Supports ?status=&phone=&page=&limit=
+ */
+export async function getOrders(req, res, next) {
+  try {
+    const { status, phone, page = 1, limit = 20 } = req.query;
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (phone) filter.phone = phone;
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+
+    const [orders, total] = await Promise.all([
+      Order.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum),
+      Order.countDocuments(filter),
+    ]);
+
+    res.json({
+      success: true,
+      data: orders,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @route   GET /api/orders/:id
+ * @desc    Get a single order by id
+ */
+export async function getOrderById(req, res, next) {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    res.json({ success: true, data: order });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @route   PATCH /api/orders/:id/status
+ * @desc    Update order status
+ */
+export async function updateOrderStatus(req, res, next) {
+  try {
+    const { status } = req.body;
+    const allowed = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
+
+    if (!status || !allowed.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid status. Allowed: ${allowed.join(', ')}`,
+      });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true, runValidators: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    res.json({ success: true, data: order });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @route   DELETE /api/orders/:id
+ * @desc    Delete an order
+ */
+export async function deleteOrder(req, res, next) {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    res.json({ success: true, data: { id: req.params.id, deleted: true } });
+  } catch (err) {
+    next(err);
+  }
+}
