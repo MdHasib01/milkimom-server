@@ -21,7 +21,7 @@ async function sendAdminOrderSms(order) {
     if (order.transactionId) {
       message += `\nTrx ID: ${order.transactionId}`;
     }
-    message += `\nমোট: ৳${order.price}`;
+    message += `\nমোট: ${order.price}/=`;
 
     await sendBdBulkSms(to, message, 'admin_notification');
   } catch (err) {

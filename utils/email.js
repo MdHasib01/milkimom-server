@@ -51,7 +51,7 @@ export async function sendAdminOrderEmail(order) {
       ['Flavour', order.flavour],
       ['Payment', order.paymentMethod],
       ['Payment Status', order.paymentStatus],
-      ['Total', `৳${order.price}`],
+      ['Total', `${order.price}/=`],
       ['Customer', order.customerName],
       ['Phone', order.phone],
       ['Alt. Phone', order.alternativePhone || 'N/A'],
@@ -77,7 +77,7 @@ export async function sendAdminOrderEmail(order) {
     const info = await mailer.sendMail({
       from: process.env.EMAIL_FROM || process.env.SMTP_USER,
       to,
-      subject: `🛒 New Milkimom Order — ${order.customerName} (৳${order.price})`,
+      subject: `🛒 New Milkimom Order — ${order.customerName} (${order.price}/=)`,
       html,
       text: rows.map(([label, value]) => `${label}: ${value}`).join('\n'),
     });
