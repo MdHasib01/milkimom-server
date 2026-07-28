@@ -15,10 +15,16 @@ function getTransporter() {
   }
 
   transporter = nodemailer.createTransport({
-    host,
+    host: host.trim(),
     port: Number(process.env.SMTP_PORT) || 587,
     secure: Number(process.env.SMTP_PORT) === 465,
-    auth: { user, pass },
+    auth: {
+      user: user.trim(),
+      pass: pass.replace(/\s+/g, ''),
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
   });
 
   return transporter;
@@ -38,8 +44,16 @@ export async function sendAdminOrderEmail(order) {
       return { success: false, error: 'SMTP not configured' };
     }
 
-    const settings = await Settings.getGlobal();
-    const to = settings.adminEmail || process.env.ADMIN_EMAIL;
+    let to = process.env.ADMIN_EMAIL;
+    try {
+      const settings = await Settings.getGlobal();
+      if (settings?.adminEmail && settings.adminEmail.trim()) {
+        to = settings.adminEmail.trim();
+      }
+    } catch (dbErr) {
+      console.warn('[Email] Could not fetch settings from DB, using ADMIN_EMAIL env fallback:', dbErr.message);
+    }
+
     if (!to) {
       console.warn('[Email] No admin email configured in settings or ADMIN_EMAIL. Skipping admin email.');
       return { success: false, error: 'Admin email not configured' };
@@ -59,7 +73,7 @@ export async function sendAdminOrderEmail(order) {
       ['Thana', order.thana],
       ['Address', order.address],
       ['Transaction ID', order.transactionId || 'N/A'],
-      ['Order Time', new Date(order.orderTime).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' })],
+      ['Order Time', new Date(order.orderTime || Date.now()).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' })],
     ];
 
     const html = `
@@ -89,3 +103,52 @@ export async function sendAdminOrderEmail(order) {
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Sends a confirmation email to the customer if an email address is provided.
+ * Never throws — order creation must not fail because of email issues.
+ */
+export async function sendCustomerOrderEmail(order) {
+  try {
+    if (!order.email || !order.email.includes('@')) {
+      return { success: false, error: 'No valid customer email' };
+    }
+
+    const mailer = getTransporter();
+    if (!mailer) {
+      return { success: false, error: 'SMTP not configured' };
+    }
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+        <h2 style="color: #BD0052; text-align: center;">অর্ডার কনফার্মেশন - মিল্কিমম</h2>
+        <p>প্রিয় <strong>${order.customerName}</strong>,</p>
+        <p>মিল্কিমম-এ অর্ডার করার জন্য আপনাকে ধন্যবাদ! আপনার অর্ডারটি সফলভাবে গ্রহণ করা হয়েছে।</p>
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
+          <h3 style="margin-top:0; color: #333;">অর্ডারের বিবরণ</h3>
+          <p><strong>অর্ডার আইডি:</strong> ${order._id}</p>
+          <p><strong>পণ্য:</strong> ${order.product}</p>
+          <p><strong>ফ্লেভার:</strong> ${order.flavour}</p>
+          <p><strong>মোট মূল্য:</strong> ৳${order.price}</p>
+          <p><strong>পেমেন্ট পদ্ধতি:</strong> ${order.paymentMethod}</p>
+          <p><strong>ডেলিভারি ঠিকানা:</strong> ${order.address}, ${order.thana}, ${order.district}</p>
+        </div>
+        <p style="color: #666; font-size: 14px;">আমাদের একজন প্রতিনিধি খুব শীঘ্রই আপনার সাথে যোগাযোগ করে ডেলিভারির সময়সূচী নিশ্চিত করবেন।</p>
+      </div>
+    `;
+
+    const info = await mailer.sendMail({
+      from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+      to: order.email,
+      subject: `🎉 Milkimom Order Confirmation — Order #${order._id.toString().slice(-6)}`,
+      html,
+    });
+
+    console.log(`[Email] Customer order confirmation sent to ${order.email} (messageId: ${info.messageId})`);
+    return { success: true };
+  } catch (err) {
+    console.error('[Email Error] Failed to send customer order email:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+

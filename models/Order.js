@@ -23,6 +23,12 @@ const orderSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: '',
+    },
     district: {
       type: String,
       required: [true, 'District is required'],

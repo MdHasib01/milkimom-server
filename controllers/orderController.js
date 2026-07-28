@@ -1,8 +1,25 @@
 import Order from '../models/Order.js';
 import Settings from '../models/Settings.js';
 import { isValidBdPhone } from '../utils/phone.js';
-import { sendAdminOrderEmail } from '../utils/email.js';
+import { sendAdminOrderEmail, sendCustomerOrderEmail } from '../utils/email.js';
 import { sendBdBulkSms } from '../utils/sms.js';
+
+/**
+ * Sends a confirmation SMS to the customer when an order is created.
+ * Never throws — order creation must not block if SMS fails.
+ */
+async function sendCustomerOrderSms(order) {
+  try {
+    if (!order.phone) return;
+
+    const shortId = order._id ? order._id.toString().slice(-6) : '';
+    const message = `প্রিয় ${order.customerName}, মিল্কিমম-এ আপনার অর্ডারটি গ্রহণ করা হয়েছে (অর্ডার ID: ${shortId})। ফ্লেভার: ${order.flavour}, মোট: ${order.price}/=। দ্রুত ডেলিভারি নিশ্চিত করতে আমাদের প্রতিনিধি যোগাযোগ করবেন।`;
+
+    await sendBdBulkSms(order.phone, message, 'customer_confirmation');
+  } catch (err) {
+    console.error('[Customer SMS Error] Failed to send customer order SMS:', err.message);
+  }
+}
 
 /**
  * Sends the new-order SMS to the admin mobile configured in Settings
@@ -10,8 +27,16 @@ import { sendBdBulkSms } from '../utils/sms.js';
  */
 async function sendAdminOrderSms(order) {
   try {
-    const settings = await Settings.getGlobal();
-    const to = settings.adminMobile || process.env.ADMIN_PHONE;
+    let to = process.env.ADMIN_PHONE;
+    try {
+      const settings = await Settings.getGlobal();
+      if (settings?.adminMobile && settings.adminMobile.trim()) {
+        to = settings.adminMobile.trim();
+      }
+    } catch (dbErr) {
+      console.warn('[SMS] Could not fetch settings from DB, using ADMIN_PHONE env fallback:', dbErr.message);
+    }
+
     if (!to) {
       console.warn('[SMS] No admin mobile configured in settings or ADMIN_PHONE. Skipping admin SMS.');
       return;
@@ -40,6 +65,7 @@ export async function createOrder(req, res, next) {
       customerName,
       phone,
       alternativePhone,
+      email,
       district,
       thana,
       address,
@@ -77,6 +103,7 @@ export async function createOrder(req, res, next) {
       customerName,
       phone,
       alternativePhone: alternativePhone || '',
+      email: email || '',
       district,
       thana,
       address,
@@ -92,8 +119,20 @@ export async function createOrder(req, res, next) {
     });
 
     // Fire-and-forget: notification failures must not block order confirmation
-    sendAdminOrderEmail(order);
-    sendAdminOrderSms(order);
+    sendCustomerOrderSms(order).catch((err) =>
+      console.error('[Customer SMS Exception]', err.message)
+    );
+    sendAdminOrderSms(order).catch((err) =>
+      console.error('[Admin SMS Exception]', err.message)
+    );
+    sendAdminOrderEmail(order).catch((err) =>
+      console.error('[Admin Email Exception]', err.message)
+    );
+    if (order.email) {
+      sendCustomerOrderEmail(order).catch((err) =>
+        console.error('[Customer Email Exception]', err.message)
+      );
+    }
 
     res.status(201).json({ success: true, data: order });
   } catch (err) {
