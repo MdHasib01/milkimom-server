@@ -27,29 +27,25 @@ export async function checkIpAndFraud(req, res, next) {
 
     const normalizedPhone = phone ? normalizePhoneNumber(phone) : '';
 
-    // Check if this IP is ALREADY recorded in DB prior to this check
-    const existingIpTrack = await IpTrack.findOne({ ip: clientIp });
-    const existingOrder = await Order.findOne({ ipAddress: clientIp });
+    // Check if an order has ALREADY been placed from this IP address or phone number
+    const existingOrder = await Order.findOne({
+      $or: [
+        { ipAddress: clientIp },
+        ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+      ],
+    });
 
-    const isAlreadyInDb = Boolean(existingIpTrack || existingOrder);
+    const isAlreadyInDb = Boolean(existingOrder);
 
-    // Save / update the IP record in IpTrack DB
-    if (existingIpTrack) {
-      await IpTrack.updateOne(
-        { _id: existingIpTrack._id },
-        {
-          $set: { lastSeen: new Date(), ...(normalizedPhone ? { phone: normalizedPhone } : {}) },
-          $inc: { count: 1 },
-        }
-      );
-    } else {
-      await IpTrack.create({
-        ip: clientIp,
-        phone: normalizedPhone,
-        count: 1,
-        lastSeen: new Date(),
-      });
-    }
+    // Save/update the IP tracking log in IpTrack DB
+    await IpTrack.updateOne(
+      { ip: clientIp },
+      {
+        $set: { lastSeen: new Date(), ...(normalizedPhone ? { phone: normalizedPhone } : {}) },
+        $inc: { count: 1 },
+      },
+      { upsert: true }
+    );
 
     return res.json({
       success: true,
