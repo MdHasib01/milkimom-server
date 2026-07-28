@@ -63,6 +63,13 @@ export async function createOrder(req, res, next) {
       return res.status(400).json({ success: false, error: 'Invalid Bangladeshi phone number' });
     }
 
+    const FLAVOUR_MAP = {
+      'ডার্ক চকলেট': 'Dark Chocolate',
+      'ভ্যানিলা': 'Vanilla',
+      'এলাচ': 'Cardamom',
+      'দারুচিনি': 'Cinnamon',
+    };
+
     const isPrepaid = paymentMethod === 'Paid' || paymentMethod === 'bKash';
 
     const order = await Order.create({
@@ -73,7 +80,7 @@ export async function createOrder(req, res, next) {
       district,
       thana,
       address,
-      flavour: flavour || 'Dark Chocolate',
+      flavour: FLAVOUR_MAP[flavour] || flavour || 'Dark Chocolate',
       paymentMethod: paymentMethod || 'COD',
       paymentStatus: isPrepaid ? 'Paid' : 'COD',
       price,

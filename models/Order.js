@@ -40,7 +40,7 @@ const orderSchema = new mongoose.Schema(
     },
     flavour: {
       type: String,
-      enum: ['Dark Chocolate', 'Vanilla', 'Cardamom', 'Cinnamon'],
+      enum: ['Dark Chocolate', 'Vanilla', 'Cardamom', 'Cinnamon', 'ডার্ক চকলেট', 'ভ্যানিলা', 'এলাচ', 'দারুচিনি'],
       default: 'Dark Chocolate',
     },
     paymentMethod: {

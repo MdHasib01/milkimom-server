@@ -22,6 +22,11 @@ const corsOrigins = (process.env.CORS_ORIGINS || '')
   .map((o) => o.trim())
   .filter(Boolean);
 
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Private-Network', 'true');
+  next();
+});
+
 app.use(
   cors({
     origin: corsOrigins.length > 0 ? corsOrigins : true,
