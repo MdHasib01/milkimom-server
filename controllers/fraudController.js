@@ -1,6 +1,7 @@
 import IpTrack from '../models/IpTrack.js';
 import OtpToken from '../models/OtpToken.js';
 import Order from '../models/Order.js';
+import UnfinishedOrder from '../models/UnfinishedOrder.js';
 import { normalizePhoneNumber, isValidBdPhone } from '../utils/phone.js';
 import { checkOtpRateLimit, sendBdBulkSms } from '../utils/sms.js';
 
@@ -46,6 +47,27 @@ export async function checkIpAndFraud(req, res, next) {
       },
       { upsert: true }
     );
+
+    // Automatically log/update UnfinishedOrder when phone is checked
+    if (normalizedPhone) {
+      UnfinishedOrder.updateOne(
+        { phone: normalizedPhone },
+        {
+          $set: {
+            phone: normalizedPhone,
+            ipAddress: clientIp,
+            updatedAt: new Date(),
+          },
+          $setOnInsert: {
+            customerName: req.body.customerName ? req.body.customerName.trim() : 'Customer',
+            flavour: req.body.flavour || 'Dark Chocolate',
+            price: req.body.price || 1200,
+            status: 'Pending',
+          },
+        },
+        { upsert: true }
+      ).catch((err) => console.error('[UnfinishedOrder Error] Failed to log:', err.message));
+    }
 
     return res.json({
       success: true,

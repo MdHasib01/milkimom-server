@@ -1,5 +1,6 @@
 import Order from '../models/Order.js';
 import IpTrack from '../models/IpTrack.js';
+import UnfinishedOrder from '../models/UnfinishedOrder.js';
 import Settings from '../models/Settings.js';
 import { isValidBdPhone, normalizePhoneNumber } from '../utils/phone.js';
 import { sendAdminOrderEmail, sendCustomerOrderEmail } from '../utils/email.js';
@@ -131,6 +132,12 @@ export async function createOrder(req, res, next) {
       },
       { upsert: true }
     ).catch((err) => console.error('[IpTrack Error] Failed to update IP log on order creation:', err));
+
+    // Remove from UnfinishedOrder collection now that order is successfully completed!
+    const normPhone = normalizePhoneNumber(phone);
+    UnfinishedOrder.deleteMany({
+      $or: [{ phone: phone }, { phone: normPhone }],
+    }).catch((err) => console.error('[UnfinishedOrder] Clean up failed on order creation:', err.message));
 
     // Fire-and-forget: notification failures must not block order confirmation
     sendCustomerOrderSms(order).catch((err) =>
