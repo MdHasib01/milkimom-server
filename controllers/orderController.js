@@ -78,10 +78,10 @@ export async function createOrder(req, res, next) {
       orderTime,
     } = req.body;
 
-    if (!customerName || !phone || !district || !thana || !address) {
+    if (!phone) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: customerName, phone, district, thana, address',
+        error: 'Missing required field: phone',
       });
     }
 
@@ -100,13 +100,13 @@ export async function createOrder(req, res, next) {
 
     const order = await Order.create({
       product: product || 'Milkimom Complete Dose',
-      customerName,
+      customerName: customerName ? customerName.trim() : 'Customer',
       phone,
       alternativePhone: alternativePhone || '',
       email: email || '',
-      district,
-      thana,
-      address,
+      district: district || '',
+      thana: thana || '',
+      address: address || '',
       flavour: FLAVOUR_MAP[flavour] || flavour || 'Dark Chocolate',
       paymentMethod: paymentMethod || 'COD',
       paymentStatus: isPrepaid ? 'Paid' : 'COD',

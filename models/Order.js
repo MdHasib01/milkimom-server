@@ -9,7 +9,7 @@ const orderSchema = new mongoose.Schema(
     },
     customerName: {
       type: String,
-      required: [true, 'Customer name is required'],
+      default: 'Customer',
       trim: true,
     },
     phone: {
@@ -31,17 +31,17 @@ const orderSchema = new mongoose.Schema(
     },
     district: {
       type: String,
-      required: [true, 'District is required'],
+      default: '',
       trim: true,
     },
     thana: {
       type: String,
-      required: [true, 'Thana is required'],
+      default: '',
       trim: true,
     },
     address: {
       type: String,
-      required: [true, 'Address is required'],
+      default: '',
       trim: true,
     },
     flavour: {
