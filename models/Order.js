@@ -84,6 +84,12 @@ const orderSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    ipAddress: {
+      type: String,
+      trim: true,
+      default: '',
+      index: true,
+    },
     orderTime: {
       type: Date,
       default: Date.now,

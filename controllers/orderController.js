@@ -1,8 +1,10 @@
 import Order from '../models/Order.js';
+import IpTrack from '../models/IpTrack.js';
 import Settings from '../models/Settings.js';
-import { isValidBdPhone } from '../utils/phone.js';
+import { isValidBdPhone, normalizePhoneNumber } from '../utils/phone.js';
 import { sendAdminOrderEmail, sendCustomerOrderEmail } from '../utils/email.js';
 import { sendBdBulkSms } from '../utils/sms.js';
+import { getClientIp } from './fraudController.js';
 
 /**
  * Sends a confirmation SMS to the customer when an order is created.
@@ -97,6 +99,7 @@ export async function createOrder(req, res, next) {
     };
 
     const isPrepaid = paymentMethod === 'Paid' || paymentMethod === 'bKash';
+    const clientIp = getClientIp(req);
 
     const order = await Order.create({
       product: product || 'Milkimom Complete Dose',
@@ -114,9 +117,20 @@ export async function createOrder(req, res, next) {
       transactionId: transactionId || '',
       screenshotUploaded: Boolean(screenshotUploaded),
       pageUrl: pageUrl || '',
+      ipAddress: clientIp,
       orderTime: orderTime ? new Date(orderTime) : new Date(),
       status: 'Pending',
     });
+
+    // Asynchronously log/update IpTrack DB entry for this order's IP
+    IpTrack.updateOne(
+      { ip: clientIp },
+      {
+        $set: { lastSeen: new Date(), phone: normalizePhoneNumber(phone) },
+        $inc: { count: 1 },
+      },
+      { upsert: true }
+    ).catch((err) => console.error('[IpTrack Error] Failed to update IP log on order creation:', err));
 
     // Fire-and-forget: notification failures must not block order confirmation
     sendCustomerOrderSms(order).catch((err) =>

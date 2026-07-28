@@ -8,6 +8,7 @@ import authRoutes from './routes/authRoutes.js';
 import adminUserRoutes from './routes/adminUserRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
+import fraudRoutes from './routes/fraudRoutes.js';
 import { initCronJobs } from './utils/cronJobs.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
@@ -53,6 +54,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin-users', adminUserRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/fraud', fraudRoutes);
 
 // 404 + error handling
 app.use(notFound);
