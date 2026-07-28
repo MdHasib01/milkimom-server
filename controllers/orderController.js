@@ -12,8 +12,8 @@ async function sendCustomerOrderSms(order) {
   try {
     if (!order.phone) return;
 
-    const shortId = order._id ? order._id.toString().slice(-6) : '';
-    const message = `প্রিয় ${order.customerName}, মিল্কিমম-এ আপনার অর্ডারটি গ্রহণ করা হয়েছে (অর্ডার ID: ${shortId})। ফ্লেভার: ${order.flavour}, মোট: ${order.price}/=। দ্রুত ডেলিভারি নিশ্চিত করতে আমাদের প্রতিনিধি যোগাযোগ করবেন।`;
+    const orderIdStr = order._id ? order._id.toString() : '';
+    const message = `অভিনন্দন Great মা!\n\nআপনার Milkimom অর্ডারটি সফলভাবে গ্রহণ করা হয়েছে৷\n\nইনশাআল্লাহ ২–৩ কার্যদিবসের মধ্যে আপনার অর্ডারটি আপনার ঠিকানায় পৌঁছে যাবে৷\n\nঅর্ডার ট্র্যাক করুন:\nhttp://milkimom.xyz/track/${orderIdStr}\n\nযেকোনো প্রয়োজনে যোগাযোগ করুন:\n\nWhatsApp:\n01517-102603\n\nMilkimom\nMake Mother Great Again.`;
 
     await sendBdBulkSms(order.phone, message, 'customer_confirmation');
   } catch (err) {
@@ -227,15 +227,90 @@ export async function updateOrderStatus(req, res, next) {
 }
 
 /**
- * @route   DELETE /api/orders/:id
- * @desc    Delete an order
+ * @route   PATCH /api/orders/:id
+ * @desc    Update editable fields of an order (Customer Name, Location: address/thana/district, Flavour)
  */
-export async function deleteOrder(req, res, next) {
+export async function updateOrder(req, res, next) {
   try {
-    const order = await Order.findByIdAndDelete(req.params.id);
+    const { customerName, address, thana, district, flavour } = req.body;
+
+    const updateData = {};
+    if (customerName !== undefined) updateData.customerName = String(customerName).trim();
+    if (address !== undefined) updateData.address = String(address).trim();
+    if (thana !== undefined) updateData.thana = String(thana).trim();
+    if (district !== undefined) updateData.district = String(district).trim();
+    if (flavour !== undefined) updateData.flavour = String(flavour).trim();
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ success: false, error: 'No valid fields provided for update' });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
     if (!order) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
+
+    res.json({ success: true, data: order });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @route   DELETE /api/orders/bulk
+ * @desc    Bulk delete orders (only cancelled orders allowed)
+ */
+export async function bulkDeleteOrders(req, res, next) {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'No order IDs provided' });
+    }
+
+    const orders = await Order.find({ _id: { $in: ids } });
+    if (orders.length === 0) {
+      return res.status(404).json({ success: false, error: 'No matching orders found' });
+    }
+
+    const nonCancelled = orders.filter((o) => o.status !== 'Cancelled');
+    if (nonCancelled.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Only cancelled orders can be deleted',
+      });
+    }
+
+    const result = await Order.deleteMany({ _id: { $in: ids }, status: 'Cancelled' });
+    res.json({ success: true, count: result.deletedCount });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @route   DELETE /api/orders/:id
+ * @desc    Delete an order (only cancelled orders allowed)
+ */
+export async function deleteOrder(req, res, next) {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    if (order.status !== 'Cancelled') {
+      return res.status(400).json({
+        success: false,
+        error: 'Only cancelled orders can be deleted',
+      });
+    }
+
+    await Order.findByIdAndDelete(req.params.id);
     res.json({ success: true, data: { id: req.params.id, deleted: true } });
   } catch (err) {
     next(err);
