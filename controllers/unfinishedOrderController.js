@@ -102,9 +102,15 @@ export async function updateUnfinishedOrderStatus(req, res, next) {
       });
     }
 
+    const adminInfo = req.admin ? `${req.admin.name} (${req.admin.role || 'admin'})` : 'Admin';
+
     const order = await UnfinishedOrder.findByIdAndUpdate(
       id,
-      { status },
+      {
+        status,
+        statusUpdatedBy: adminInfo,
+        statusUpdatedAt: new Date(),
+      },
       { new: true }
     );
 

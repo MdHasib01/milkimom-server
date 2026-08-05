@@ -232,9 +232,15 @@ export async function updateOrderStatus(req, res, next) {
       });
     }
 
+    const adminInfo = req.admin ? `${req.admin.name} (${req.admin.role || 'admin'})` : 'Admin';
+
     const order = await Order.findByIdAndUpdate(
       req.params.id,
-      { status },
+      {
+        status,
+        statusUpdatedBy: adminInfo,
+        statusUpdatedAt: new Date(),
+      },
       { new: true, runValidators: true }
     );
 
@@ -265,6 +271,11 @@ export async function updateOrder(req, res, next) {
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ success: false, error: 'No valid fields provided for update' });
+    }
+
+    if (req.admin) {
+      updateData.statusUpdatedBy = `${req.admin.name} (${req.admin.role || 'admin'})`;
+      updateData.statusUpdatedAt = new Date();
     }
 
     const order = await Order.findByIdAndUpdate(

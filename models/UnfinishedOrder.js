@@ -52,6 +52,15 @@ const unfinishedOrderSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    statusUpdatedBy: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    statusUpdatedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
