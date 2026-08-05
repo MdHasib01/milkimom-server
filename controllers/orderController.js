@@ -222,6 +222,10 @@ export async function getOrderById(req, res, next) {
  */
 export async function updateOrderStatus(req, res, next) {
   try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({ success: false, error: 'Moderators are not permitted to change order status' });
+    }
+
     const { status } = req.body;
     const allowed = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
 
@@ -260,6 +264,10 @@ export async function updateOrderStatus(req, res, next) {
  */
 export async function updateOrder(req, res, next) {
   try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({ success: false, error: 'Moderators are not permitted to edit order details' });
+    }
+
     const { customerName, address, thana, district, flavour } = req.body;
 
     const updateData = {};
@@ -300,6 +308,10 @@ export async function updateOrder(req, res, next) {
  */
 export async function bulkDeleteOrders(req, res, next) {
   try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({ success: false, error: 'Only admins and superadmins can delete orders' });
+    }
+
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ success: false, error: 'No order IDs provided' });
@@ -331,6 +343,10 @@ export async function bulkDeleteOrders(req, res, next) {
  */
 export async function deleteOrder(req, res, next) {
   try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({ success: false, error: 'Only admins and superadmins can delete orders' });
+    }
+
     const order = await Order.findById(req.params.id);
     if (!order) {
       return res.status(404).json({ success: false, error: 'Order not found' });

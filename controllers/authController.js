@@ -61,3 +61,42 @@ export async function login(req, res, next) {
 export async function me(req, res) {
   res.json({ success: true, data: req.admin.toSafeJSON() });
 }
+
+/**
+ * @route   POST /api/auth/change-password
+ * @desc    Allows authenticated user to update their password (clears mustChangePassword flag)
+ */
+export async function changePassword(req, res, next) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword || String(newPassword).length < 6) {
+      return res.status(400).json({ success: false, error: 'New password must be at least 6 characters' });
+    }
+
+    const admin = await AdminUser.findById(req.admin._id).select('+passwordHash');
+    if (!admin) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Verify current password if provided
+    if (currentPassword) {
+      const valid = await admin.comparePassword(currentPassword);
+      if (!valid) {
+        return res.status(400).json({ success: false, error: 'Incorrect current password' });
+      }
+    }
+
+    admin.passwordHash = await AdminUser.hashPassword(newPassword);
+    admin.mustChangePassword = false;
+    await admin.save();
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully',
+      data: admin.toSafeJSON(),
+    });
+  } catch (err) {
+    next(err);
+  }
+}

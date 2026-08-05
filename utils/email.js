@@ -150,3 +150,67 @@ export async function sendCustomerOrderEmail(order) {
   }
 }
 
+/**
+ * Generates an 8-character random key for user passwords.
+ */
+export function generateRandomPassword(length = 8) {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+/**
+ * Sends an email to an admin user with their temporary password credentials.
+ * Used upon admin user creation and password resets.
+ */
+export async function sendAdminUserCredentialEmail(user, plainPassword, type = 'created') {
+  try {
+    const mailer = getTransporter();
+    if (!mailer) {
+      console.warn('[Email] SMTP is not configured. Skipping admin user credential email.');
+      return { success: false, error: 'SMTP not configured' };
+    }
+
+    const isReset = type === 'reset';
+    const title = isReset ? 'পাসওয়ার্ড রিসেট তথ্য' : 'নতুন এডমিন অ্যাকাউন্ট তথ্য';
+    const subject = isReset ? '🔑 Password Reset - Milkimom Admin' : '🔑 Your Milkimom Admin Credentials';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #eee; border-radius: 12px; background-color: #ffffff;">
+        <h2 style="color: #BD0052; text-align: center; margin-top: 0;">${title}</h2>
+        <p>প্রিয় <strong>${user.name}</strong>,</p>
+        <p>${isReset ? 'আপনার মিল্কিমম এডমিন পাসওয়ার্ড সফলভাবে রিসেট করা হয়েছে।' : 'আপনাকে মিল্কিমম এডমিন প্যানেলে স্বাগতম! আপনার অ্যাকাউন্ট সফলভাবে তৈরি করা হয়েছে।'}</p>
+        
+        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 20px 0;">
+          <h4 style="margin-top: 0; color: #1e293b;">লগইন বিবরণ:</h4>
+          <p style="margin: 6px 0;"><strong>ইমেইল:</strong> ${user.email}</p>
+          <p style="margin: 6px 0;"><strong>রোল:</strong> <span style="text-transform: capitalize;">${user.role}</span></p>
+          <p style="margin: 6px 0; font-size: 16px;"><strong>অস্থায়ী পাসওয়ার্ড (Random Key):</strong> <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; color: #e11d48; font-weight: bold;">${plainPassword}</code></p>
+        </div>
+
+        <p style="color: #e11d48; font-weight: bold;">⚠️ প্রথমবার লগইন করার সাথে সাথেই নিরাপত্তা নিশ্চিত করতে পাসওয়ার্ডটি পরিবর্তন করে নিন।</p>
+        
+        <div style="text-align: center; margin-top: 24px;">
+          <a href="http://milkimom.xyz/admin/login" style="background-color: #BD0052; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">এডমিন প্যানেলে লগইন করুন</a>
+        </div>
+      </div>
+    `;
+
+    const info = await mailer.sendMail({
+      from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+      to: user.email,
+      subject,
+      html,
+    });
+
+    console.log(`[Email] Admin user credential email sent to ${user.email} (messageId: ${info.messageId})`);
+    return { success: true };
+  } catch (err) {
+    console.error('[Email Error] Failed to send admin user credential email:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+

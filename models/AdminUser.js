@@ -23,8 +23,12 @@ const adminUserSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['superadmin', 'admin'],
+      enum: ['superadmin', 'admin', 'moderator'],
       default: 'admin',
+    },
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
     },
     active: {
       type: Boolean,
@@ -54,6 +58,7 @@ adminUserSchema.methods.toSafeJSON = function () {
     name: this.name,
     email: this.email,
     role: this.role,
+    mustChangePassword: Boolean(this.mustChangePassword),
     active: this.active,
     lastLoginAt: this.lastLoginAt,
     createdAt: this.createdAt,

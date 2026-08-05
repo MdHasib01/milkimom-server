@@ -91,6 +91,10 @@ export async function getUnfinishedOrders(req, res, next) {
  */
 export async function updateUnfinishedOrderStatus(req, res, next) {
   try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({ success: false, error: 'Moderators are not permitted to change status' });
+    }
+
     const { id } = req.params;
     const { status } = req.body;
 
@@ -130,6 +134,10 @@ export async function updateUnfinishedOrderStatus(req, res, next) {
  */
 export async function deleteUnfinishedOrder(req, res, next) {
   try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({ success: false, error: 'Only admins and superadmins can delete unfinished orders' });
+    }
+
     const { id } = req.params;
     const order = await UnfinishedOrder.findByIdAndDelete(id);
 
@@ -149,6 +157,10 @@ export async function deleteUnfinishedOrder(req, res, next) {
  */
 export async function bulkDeleteUnfinishedOrders(req, res, next) {
   try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({ success: false, error: 'Only admins and superadmins can delete unfinished orders' });
+    }
+
     const { ids } = req.body;
 
     if (!Array.isArray(ids) || ids.length === 0) {
