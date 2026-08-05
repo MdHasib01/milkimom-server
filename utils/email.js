@@ -69,9 +69,7 @@ export async function sendAdminOrderEmail(order) {
       ['Customer', order.customerName || 'Customer'],
       ['Phone', order.phone],
       ['Alt. Phone', order.alternativePhone || 'N/A'],
-      ['District', order.district || 'N/A'],
-      ['Thana', order.thana || 'N/A'],
-      ['Address', order.address || 'N/A'],
+      ['Address', order.address || [order.thana, order.district].filter(Boolean).join(', ') || 'N/A'],
       ['Transaction ID', order.transactionId || 'N/A'],
       ['Order Time', new Date(order.orderTime || Date.now()).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' })],
     ];
@@ -131,7 +129,7 @@ export async function sendCustomerOrderEmail(order) {
           <p><strong>ফ্লেভার:</strong> ${order.flavour}</p>
           <p><strong>মোট মূল্য:</strong> ৳${order.price}</p>
           <p><strong>পেমেন্ট পদ্ধতি:</strong> ${order.paymentMethod}</p>
-          <p><strong>ডেলিভারি ঠিকানা:</strong> ${order.address}, ${order.thana}, ${order.district}</p>
+          <p><strong>ডেলিভারি ঠিকানা:</strong> ${[order.address, order.thana, order.district].filter(Boolean).join(', ')}</p>
         </div>
         <p style="color: #666; font-size: 14px;">আমাদের একজন প্রতিনিধি খুব শীঘ্রই আপনার সাথে যোগাযোগ করে ডেলিভারির সময়সূচী নিশ্চিত করবেন।</p>
       </div>

@@ -45,7 +45,8 @@ async function sendAdminOrderSms(order) {
       return;
     }
 
-    let message = `নতুন Milkimom অর্ডার\n\nনাম: ${order.customerName}\nফোন: ${order.phone}\nজেলা: ${order.district}\nথানা: ${order.thana}\nফ্লেভার: ${order.flavour}\nপেমেন্ট: ${order.paymentStatus === 'Paid' ? 'bKash' : 'Cash on Delivery'}`;
+    const locationStr = order.address || [order.thana, order.district].filter(Boolean).join(', ') || 'N/A';
+    let message = `নতুন Milkimom অর্ডার\n\nনাম: ${order.customerName}\nফোন: ${order.phone}\nঠিকানা: ${locationStr}\nফ্লেভার: ${order.flavour}\nপেমেন্ট: ${order.paymentStatus === 'Paid' ? 'bKash' : 'Cash on Delivery'}`;
     if (order.transactionId) {
       message += `\nTrx ID: ${order.transactionId}`;
     }
