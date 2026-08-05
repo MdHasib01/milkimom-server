@@ -7,6 +7,12 @@ import MotherCount from '../models/MotherCount.js';
 export const getMotherCount = async (req, res, next) => {
   try {
     const stats = await MotherCount.getStats();
+    // The count only moves on a cron tick, so let the Next.js route handler and
+    // any CDN in front of it hold the answer instead of re-querying per visitor.
+    res.set(
+      'Cache-Control',
+      'public, max-age=60, s-maxage=300, stale-while-revalidate=600'
+    );
     res.json({
       success: true,
       data: {
