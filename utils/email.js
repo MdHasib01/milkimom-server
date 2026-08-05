@@ -197,7 +197,7 @@ export async function sendAdminUserCredentialEmail(user, plainPassword, type = '
         <p style="color: #e11d48; font-weight: bold; font-size: 13px;">⚠️ প্রথমবার লগইন করার সাথে সাথেই নিরাপত্তা নিশ্চিত করতে পাসওয়ার্ডটি পরিবর্তন করে নিন।</p>
         
         <div style="text-align: center; margin-top: 24px;">
-          <a href="http://milkimom.xyz/admin/login" style="background-color: #BD0052; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">এডমিন প্যানেলে লগইন করুন</a>
+          <a href="https://milkimom.com/admin/login" style="background-color: #BD0052; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">এডমিন প্যানেলে লগইন করুন</a>
         </div>
       </div>
     `;
