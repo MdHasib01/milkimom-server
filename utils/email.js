@@ -185,13 +185,16 @@ export async function sendAdminUserCredentialEmail(user, plainPassword, type = '
         <p>${isReset ? 'আপনার মিল্কিমম এডমিন পাসওয়ার্ড সফলভাবে রিসেট করা হয়েছে।' : 'আপনাকে মিল্কিমম এডমিন প্যানেলে স্বাগতম! আপনার অ্যাকাউন্ট সফলভাবে তৈরি করা হয়েছে।'}</p>
         
         <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 20px 0;">
-          <h4 style="margin-top: 0; color: #1e293b;">লগইন বিবরণ:</h4>
+          <h4 style="margin-top: 0; color: #1e293b; margin-bottom: 12px;">লগইন বিবরণ:</h4>
           <p style="margin: 6px 0;"><strong>ইমেইল:</strong> ${user.email}</p>
           <p style="margin: 6px 0;"><strong>রোল:</strong> <span style="text-transform: capitalize;">${user.role}</span></p>
-          <p style="margin: 6px 0; font-size: 16px;"><strong>অস্থায়ী পাসওয়ার্ড (Random Key):</strong> <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; color: #e11d48; font-weight: bold;">${plainPassword}</code></p>
+          <p style="margin: 14px 0 6px 0; font-weight: bold; color: #1e293b;">নতুন পাসওয়ার্ড:</p>
+          <div style="background-color: #f1f5f9; border: 2px dashed #BD0052; border-radius: 10px; padding: 14px 20px; text-align: center; margin: 8px 0 12px 0;">
+            <span style="font-family: 'Courier New', Courier, monospace; font-size: 26px; font-weight: 800; letter-spacing: 6px; color: #BD0052; display: inline-block;">${plainPassword}</span>
+          </div>
         </div>
 
-        <p style="color: #e11d48; font-weight: bold;">⚠️ প্রথমবার লগইন করার সাথে সাথেই নিরাপত্তা নিশ্চিত করতে পাসওয়ার্ডটি পরিবর্তন করে নিন।</p>
+        <p style="color: #e11d48; font-weight: bold; font-size: 13px;">⚠️ প্রথমবার লগইন করার সাথে সাথেই নিরাপত্তা নিশ্চিত করতে পাসওয়ার্ডটি পরিবর্তন করে নিন।</p>
         
         <div style="text-align: center; margin-top: 24px;">
           <a href="http://milkimom.xyz/admin/login" style="background-color: #BD0052; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">এডমিন প্যানেলে লগইন করুন</a>
