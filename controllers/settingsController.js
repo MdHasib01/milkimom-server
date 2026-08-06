@@ -26,6 +26,10 @@ export async function getSettings(req, res, next) {
  */
 export async function updateSettings(req, res, next) {
   try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({ success: false, error: 'Moderators are not permitted to edit or save settings' });
+    }
+
     const { adminEmail, adminMobile } = req.body;
 
     if (adminEmail !== undefined && adminEmail !== '' && !/^\S+@\S+\.\S+$/.test(adminEmail)) {
