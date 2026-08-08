@@ -5,7 +5,15 @@ import Settings from '../models/Settings.js';
 import { isValidBdPhone, normalizePhoneNumber } from '../utils/phone.js';
 import { sendAdminOrderEmail, sendCustomerOrderEmail } from '../utils/email.js';
 import { sendBdBulkSms } from '../utils/sms.js';
+import { sendMetaPurchase } from '../utils/metaCapi.js';
 import { getClientIp } from './fraudController.js';
+
+const FLAVOUR_MAP = {
+  'ডার্ক চকলেট': 'Dark Chocolate',
+  'ভ্যানিলা': 'Vanilla',
+  'এলাচ': 'Cardamom',
+  'দারুচিনি': 'Cinnamon',
+};
 
 /**
  * Sends a confirmation SMS to the customer when an order is created.
@@ -80,6 +88,8 @@ export async function createOrder(req, res, next) {
       screenshotUploaded,
       pageUrl,
       orderTime,
+      fbp,
+      fbc,
     } = req.body;
 
     if (!phone) {
@@ -92,13 +102,6 @@ export async function createOrder(req, res, next) {
     if (!isValidBdPhone(phone)) {
       return res.status(400).json({ success: false, error: 'Invalid Bangladeshi phone number' });
     }
-
-    const FLAVOUR_MAP = {
-      'ডার্ক চকলেট': 'Dark Chocolate',
-      'ভ্যানিলা': 'Vanilla',
-      'এলাচ': 'Cardamom',
-      'দারুচিনি': 'Cinnamon',
-    };
 
     const isPrepaid = paymentMethod === 'Paid' || paymentMethod === 'bKash';
     const clientIp = getClientIp(req);
@@ -120,6 +123,9 @@ export async function createOrder(req, res, next) {
       screenshotUploaded: Boolean(screenshotUploaded),
       pageUrl: pageUrl || '',
       ipAddress: clientIp,
+      userAgent: req.headers['user-agent'] || '',
+      fbp: typeof fbp === 'string' ? fbp.slice(0, 200) : '',
+      fbc: typeof fbc === 'string' ? fbc.slice(0, 500) : '',
       orderTime: orderTime ? new Date(orderTime) : new Date(),
       status: 'Pending',
     });
@@ -155,6 +161,66 @@ export async function createOrder(req, res, next) {
         console.error('[Customer Email Exception]', err.message)
       );
     }
+
+    res.status(201).json({ success: true, data: order });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @route   POST /api/orders/admin
+ * @desc    Manually add an order from the admin dashboard (message-campaign
+ *          sales). Created as Confirmed with source 'admin': no customer or
+ *          admin notifications are sent, no browser/IP identifiers are stored,
+ *          and the order is never reported to the Meta Conversions API.
+ */
+export async function createOrderAdmin(req, res, next) {
+  try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({ success: false, error: 'Moderators are not permitted to create orders' });
+    }
+
+    const { customerName, phone, address, flavour, paymentMethod, transactionId, price } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'Missing required field: phone' });
+    }
+    if (!isValidBdPhone(phone)) {
+      return res.status(400).json({ success: false, error: 'Invalid Bangladeshi phone number' });
+    }
+
+    const priceNum = Number(price);
+    if (!Number.isFinite(priceNum) || priceNum <= 0) {
+      return res.status(400).json({ success: false, error: 'Price must be a positive number' });
+    }
+
+    const isPrepaid = paymentMethod === 'Paid' || paymentMethod === 'bKash';
+    const adminInfo = req.admin ? `${req.admin.name} (${req.admin.role || 'admin'})` : 'Admin';
+
+    const order = await Order.create({
+      product: 'Milkimom Complete Dose',
+      customerName: customerName ? String(customerName).trim() : 'Customer',
+      phone,
+      address: address || '',
+      flavour: FLAVOUR_MAP[flavour] || flavour || 'Dark Chocolate',
+      paymentMethod: paymentMethod || 'COD',
+      paymentStatus: isPrepaid ? 'Paid' : 'COD',
+      price: priceNum,
+      transactionId: transactionId || '',
+      orderTime: new Date(),
+      status: 'Confirmed',
+      source: 'admin',
+      statusUpdatedBy: adminInfo,
+      statusUpdatedAt: new Date(),
+    });
+
+    // The customer may have abandoned the web form before ordering via chat —
+    // that unfinished record is resolved now.
+    const normPhone = normalizePhoneNumber(phone);
+    UnfinishedOrder.deleteMany({
+      $or: [{ phone: phone }, { phone: normPhone }],
+    }).catch((err) => console.error('[UnfinishedOrder] Clean up failed on manual order creation:', err.message));
 
     res.status(201).json({ success: true, data: order });
   } catch (err) {
@@ -252,9 +318,45 @@ export async function updateOrderStatus(req, res, next) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
+    // A delivered order is the only thing that counts as a real purchase.
+    // Report it to Meta once, ever — fire-and-forget so the admin response
+    // never waits on the Graph API.
+    if (status === 'Delivered' && !order.metaPurchaseSentAt && order.source !== 'admin') {
+      reportDeliveredPurchase(order).catch((err) =>
+        console.error('[Meta CAPI Exception]', err.message)
+      );
+    }
+
     res.json({ success: true, data: order });
   } catch (err) {
     next(err);
+  }
+}
+
+/**
+ * Claims the order's metaPurchaseSentAt flag atomically before sending, so
+ * concurrent status updates can never double-report; releases the claim if
+ * Meta rejects the event so a later re-delivery can retry.
+ */
+async function reportDeliveredPurchase(order) {
+  // Manual (admin-entered) orders came from message campaigns — the customer
+  // already reached Meta through that channel, so never report them. Orders
+  // created before the source field existed count as 'web'.
+  if (order.source === 'admin') return;
+
+  const claimed = await Order.findOneAndUpdate(
+    { _id: order._id, metaPurchaseSentAt: null },
+    { $set: { metaPurchaseSentAt: new Date() } },
+    { new: true }
+  );
+  if (!claimed) return;
+
+  const sent = await sendMetaPurchase(claimed);
+  if (!sent) {
+    await Order.updateOne(
+      { _id: order._id },
+      { $set: { metaPurchaseSentAt: null } }
+    ).catch(() => {});
   }
 }
 

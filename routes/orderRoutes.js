@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createOrder,
+  createOrderAdmin,
   getOrders,
   getOrderById,
   updateOrderStatus,
@@ -16,7 +17,9 @@ const router = Router();
 router.post('/', createOrder);
 router.get('/:id', getOrderById);
 
-// Admin only: list, status & details updates, deletion
+// Admin only: manual order entry (message-campaign sales), list,
+// status & details updates, deletion
+router.post('/admin', requireAdmin, createOrderAdmin);
 router.get('/', requireAdmin, getOrders);
 router.patch('/:id/status', requireAdmin, updateOrderStatus);
 router.patch('/:id', requireAdmin, updateOrder);

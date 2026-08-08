@@ -79,6 +79,14 @@ const orderSchema = new mongoose.Schema(
       default: 'Pending',
       index: true,
     },
+    // 'web' = customer placed it on the site; 'admin' = manually entered by an
+    // admin (message-campaign sale). Admin orders are never reported to Meta.
+    source: {
+      type: String,
+      enum: ['web', 'admin'],
+      default: 'web',
+      index: true,
+    },
     pageUrl: {
       type: String,
       trim: true,
@@ -89,6 +97,29 @@ const orderSchema = new mongoose.Schema(
       trim: true,
       default: '',
       index: true,
+    },
+    // Browser identifiers captured at order time so the Meta Conversions API
+    // Purchase (sent days later, on delivery) can be matched to the ad click.
+    userAgent: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    fbp: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    fbc: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    // Set once the delivered-order Purchase has been sent to Meta, so it is
+    // never reported twice (e.g. status toggled away from and back to Delivered).
+    metaPurchaseSentAt: {
+      type: Date,
+      default: null,
     },
     orderTime: {
       type: Date,
