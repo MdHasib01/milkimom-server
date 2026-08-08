@@ -25,7 +25,12 @@ async function sendCustomerOrderSms(order) {
     if (!order.phone) return;
 
     const orderIdStr = order._id ? order._id.toString() : '';
-    const message = `অভিনন্দন Great মা!\n\nআপনার Milkimom অর্ডারটি সফলভাবে গ্রহণ করা হয়েছে৷\n\nইনশাআল্লাহ ২–৩ কার্যদিবসের মধ্যে আপনার অর্ডারটি আপনার ঠিকানায় পৌঁছে যাবে৷\n\nঅর্ডার ট্র্যাক করুন:\nhttps://milkimom.com/track/${orderIdStr}\n\nযেকোনো প্রয়োজনে যোগাযোগ করুন:\n\nWhatsApp:\n01517-102603\n\nMilkimom\nMake Mother Great Again.`;
+    let baseUrl = (process.env.CLIENT_URL || process.env.SITE_URL || 'https://milkimom.com').trim().replace(/\/+$/, '');
+    if (!baseUrl.startsWith('https://')) {
+      baseUrl = 'https://' + baseUrl.replace(/^https?:\/\//i, '');
+    }
+
+    const message = `অভিনন্দন Great মা!\n\nআপনার Milkimom অর্ডারটি সফলভাবে গ্রহণ করা হয়েছে৷\n\nইনশাআল্লাহ ২–৩ কার্যদিবসের মধ্যে আপনার অর্ডারটি আপনার ঠিকানায় পৌঁছে যাবে৷\n\nঅর্ডার ট্র্যাক করুন:\n${baseUrl}/track/${orderIdStr}\n\nযেকোনো প্রয়োজনে যোগাযোগ করুন:\n\nWhatsApp:\n01517-102603\n\nMilkimom\nMake Mother Great Again.`;
 
     await sendBdBulkSms(order.phone, message, 'customer_confirmation');
   } catch (err) {

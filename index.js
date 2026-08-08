@@ -45,7 +45,8 @@ app.use((req, res, next) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, status: 'ok', uptime: process.uptime() });
+  const version = process.env.API_VERSION || '26080805';
+  res.json({ success: true, status: 'ok', version, uptime: process.uptime() });
 });
 
 // Routes

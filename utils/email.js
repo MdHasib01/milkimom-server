@@ -30,6 +30,14 @@ function getTransporter() {
   return transporter;
 }
 
+function getHttpsBaseUrl() {
+  let url = (process.env.CLIENT_URL || process.env.SITE_URL || 'https://milkimom.com').trim().replace(/\/+$/, '');
+  if (!url.startsWith('https://')) {
+    url = 'https://' + url.replace(/^https?:\/\//i, '');
+  }
+  return url;
+}
+
 /**
  * Sends the new-order notification email to the configured admin email.
  * Admin email comes from Settings (configurable in the dashboard),
@@ -59,6 +67,7 @@ export async function sendAdminOrderEmail(order) {
       return { success: false, error: 'Admin email not configured' };
     }
 
+    const baseUrl = getHttpsBaseUrl();
     const rows = [
       ['Order ID', order._id.toString()],
       ['Product', order.product],
@@ -72,6 +81,7 @@ export async function sendAdminOrderEmail(order) {
       ['Address', order.address || [order.thana, order.district].filter(Boolean).join(', ') || 'N/A'],
       ['Transaction ID', order.transactionId || 'N/A'],
       ['Order Time', new Date(order.orderTime || Date.now()).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' })],
+      ['Tracking Link', `<a href="${baseUrl}/track/${order._id}" style="color:#BD0052;font-weight:bold;">${baseUrl}/track/${order._id}</a>`],
     ];
 
     const html = `
@@ -91,7 +101,7 @@ export async function sendAdminOrderEmail(order) {
       to,
       subject: `🛒 New Milkimom Order — ${order.customerName} (${order.price}/=)`,
       html,
-      text: rows.map(([label, value]) => `${label}: ${value}`).join('\n'),
+      text: rows.map(([label, value]) => `${label}: ${typeof value === 'string' ? value.replace(/<[^>]*>/g, '') : value}`).join('\n'),
     });
 
     console.log(`[Email] Admin order notification sent to ${to} (messageId: ${info.messageId})`);
@@ -117,6 +127,9 @@ export async function sendCustomerOrderEmail(order) {
       return { success: false, error: 'SMTP not configured' };
     }
 
+    const baseUrl = getHttpsBaseUrl();
+    const trackingUrl = `${baseUrl}/track/${order._id}`;
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
         <h2 style="color: #BD0052; text-align: center;">অর্ডার কনফার্মেশন - মিল্কিমম</h2>
@@ -130,6 +143,10 @@ export async function sendCustomerOrderEmail(order) {
           <p><strong>মোট মূল্য:</strong> ৳${order.price}</p>
           <p><strong>পেমেন্ট পদ্ধতি:</strong> ${order.paymentMethod}</p>
           <p><strong>ডেলিভারি ঠিকানা:</strong> ${[order.address, order.thana, order.district].filter(Boolean).join(', ')}</p>
+          <p style="margin-top: 15px;"><strong>অর্ডার ট্র্যাক করুন:</strong> <a href="${trackingUrl}" style="color: #BD0052; font-weight: bold; text-decoration: underline;">${trackingUrl}</a></p>
+        </div>
+        <div style="text-align: center; margin: 25px 0;">
+          <a href="${trackingUrl}" style="background-color: #BD0052; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">অর্ডার ট্র্যাক করুন</a>
         </div>
         <p style="color: #666; font-size: 14px;">আমাদের একজন প্রতিনিধি খুব শীঘ্রই আপনার সাথে যোগাযোগ করে ডেলিভারির সময়সূচী নিশ্চিত করবেন।</p>
       </div>
@@ -177,6 +194,8 @@ export async function sendAdminUserCredentialEmail(user, plainPassword, type = '
     const isReset = type === 'reset';
     const title = isReset ? 'পাসওয়ার্ড রিসেট তথ্য' : 'নতুন এডমিন অ্যাকাউন্ট তথ্য';
     const subject = isReset ? '🔑 Password Reset - Milkimom Admin' : '🔑 Your Milkimom Admin Credentials';
+    const baseUrl = getHttpsBaseUrl();
+    const loginUrl = `${baseUrl}/admin/login`;
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #eee; border-radius: 12px; background-color: #ffffff;">
@@ -197,7 +216,7 @@ export async function sendAdminUserCredentialEmail(user, plainPassword, type = '
         <p style="color: #e11d48; font-weight: bold; font-size: 13px;">⚠️ প্রথমবার লগইন করার সাথে সাথেই নিরাপত্তা নিশ্চিত করতে পাসওয়ার্ডটি পরিবর্তন করে নিন।</p>
         
         <div style="text-align: center; margin-top: 24px;">
-          <a href="https://milkimom.com/admin/login" style="background-color: #BD0052; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">এডমিন প্যানেলে লগইন করুন</a>
+          <a href="${loginUrl}" style="background-color: #BD0052; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">এডমিন প্যানেলে লগইন করুন</a>
         </div>
       </div>
     `;
