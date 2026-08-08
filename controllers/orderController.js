@@ -383,47 +383,6 @@ export async function reportDeliveredPurchase(order) {
 }
 
 /**
- * @route   POST /api/orders/:id/steadfast
- * @desc    Manually (re)send an order to Steadfast — used from the admin
- *          dashboard when the automatic entry failed or the integration was
- *          enabled after the order was already confirmed.
- */
-export async function sendOrderToSteadfastManual(req, res, next) {
-  try {
-    if (req.admin && req.admin.role === 'moderator') {
-      return res.status(403).json({ success: false, error: 'Moderators are not permitted to send orders to Steadfast' });
-    }
-
-    const order = await Order.findById(req.params.id);
-    if (!order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-    if (order.steadfastConsignmentId) {
-      return res.status(400).json({ success: false, error: 'Order already has a Steadfast consignment' });
-    }
-    if (!['Confirmed', 'Shipped'].includes(order.status)) {
-      return res.status(400).json({ success: false, error: 'Only Confirmed or Shipped orders can be sent to Steadfast' });
-    }
-
-    // A failed earlier attempt leaves steadfastSentAt set (it doubles as the
-    // in-flight lock) — clear it so the retry can claim the order again.
-    await Order.updateOne(
-      { _id: order._id, steadfastConsignmentId: '' },
-      { $set: { steadfastSentAt: null } }
-    );
-
-    const result = await sendOrderToSteadfast(order._id);
-    if (!result.success) {
-      return res.status(502).json({ success: false, error: result.error });
-    }
-
-    res.json({ success: true, data: result.order });
-  } catch (err) {
-    next(err);
-  }
-}
-
-/**
  * @route   PATCH /api/orders/:id
  * @desc    Update editable fields of an order (Customer Name, Location: address/thana/district, Flavour)
  */

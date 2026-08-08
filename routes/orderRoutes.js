@@ -8,7 +8,6 @@ import {
   updateOrder,
   deleteOrder,
   bulkDeleteOrders,
-  sendOrderToSteadfastManual,
 } from '../controllers/orderController.js';
 import { requireAdmin } from '../middleware/auth.js';
 
@@ -23,7 +22,6 @@ router.get('/:id', getOrderById);
 router.post('/admin', requireAdmin, createOrderAdmin);
 router.get('/', requireAdmin, getOrders);
 router.patch('/:id/status', requireAdmin, updateOrderStatus);
-router.post('/:id/steadfast', requireAdmin, sendOrderToSteadfastManual);
 router.patch('/:id', requireAdmin, updateOrder);
 router.delete('/bulk', requireAdmin, bulkDeleteOrders);
 router.delete('/:id', requireAdmin, deleteOrder);

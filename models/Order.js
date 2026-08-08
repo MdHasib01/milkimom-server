@@ -44,9 +44,11 @@ const orderSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    // Free-form: flavours are a dynamic admin-managed catalog (Flavour model),
+    // so no enum — orders keep whatever flavour name existed when placed.
     flavour: {
       type: String,
-      enum: ['Dark Chocolate', 'Vanilla', 'Cardamom', 'Cinnamon', 'ডার্ক চকলেট', 'ভ্যানিলা', 'এলাচ', 'দারুচিনি'],
+      trim: true,
       default: 'Dark Chocolate',
     },
     paymentMethod: {

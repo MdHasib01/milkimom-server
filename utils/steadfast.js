@@ -1,5 +1,6 @@
 import Settings from '../models/Settings.js';
 import Order from '../models/Order.js';
+import Flavour from '../models/Flavour.js';
 import { maskPhoneNumber } from './phone.js';
 
 /**
@@ -119,14 +120,23 @@ export async function sendOrderToSteadfast(orderId) {
   const recipientAddress =
     [order.address, order.thana, order.district].filter(Boolean).join(', ') || 'N/A';
 
+  // Weight and invoice code come from the admin-managed flavour catalog
+  // (Settings → Products); built-in defaults cover unmatched flavours.
+  const flavour = await Flavour.findByOrderFlavour(order.flavour).catch(() => null);
+  const weightKg = Number(flavour?.weight) > 0 ? Number(flavour.weight) : 0.5;
+  const invoice = flavour?.invoiceCode
+    ? `${flavour.invoiceCode}-${order._id.toString()}`
+    : order._id.toString();
+
   const payload = {
-    invoice: order._id.toString(),
+    invoice,
     recipient_name: (order.customerName || 'Customer').slice(0, 100),
     recipient_phone: toLocalPhone(order.phone),
     recipient_address: recipientAddress.slice(0, 250),
     // Prepaid (bKash) orders have nothing left to collect on delivery.
     cod_amount: order.paymentStatus === 'Paid' ? 0 : Number(order.price) || 0,
-    item_description: `${order.product || 'Milkimom Complete Dose'} - ${order.flavour}`,
+    weight: weightKg,
+    item_description: `${order.product || 'Milkimom Complete Dose'} - ${order.flavour} (${weightKg} kg)`,
     note: order.alternativePhone ? `Alt phone: ${toLocalPhone(order.alternativePhone)}` : '',
   };
 
@@ -191,6 +201,50 @@ function mapSteadfastStatus(deliveryStatus) {
   if (deliveryStatus === 'delivered' || deliveryStatus === 'partial_delivered') return 'Delivered';
   if (deliveryStatus === 'cancelled') return 'Cancelled';
   return null;
+}
+
+/**
+ * Cron worker: enters every Confirmed/Shipped order that doesn't have a
+ * consignment yet. This is the safety net that makes the integration fully
+ * automatic — orders whose instant entry failed (network hiccup, courier
+ * downtime) and orders confirmed while the integration was disabled are
+ * picked up on the next run, no manual action needed.
+ */
+export async function pushPendingSteadfastEntries() {
+  const config = await getSteadfastConfig();
+  if (!config) return { attempted: 0, created: 0 };
+
+  // Release claims from attempts that never finished (server restarted
+  // mid-request). Without this they would stay locked forever, and entry is
+  // fully automatic — there is no manual send to fall back on.
+  const staleBefore = new Date(Date.now() - 30 * 60 * 1000);
+  await Order.updateMany(
+    { steadfastConsignmentId: '', steadfastSentAt: { $ne: null, $lt: staleBefore } },
+    { $set: { steadfastSentAt: null } }
+  ).catch((err) => console.error('[Steadfast] Could not release stale claims:', err.message));
+
+  // Failed attempts release the steadfastSentAt claim, so this query finds
+  // never-tried, previously-failed and recovered-stale orders alike.
+  const orders = await Order.find({
+    status: { $in: ['Confirmed', 'Shipped'] },
+    steadfastConsignmentId: '',
+    steadfastSentAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(50)
+    .select('_id');
+
+  let created = 0;
+  for (const { _id } of orders) {
+    try {
+      const result = await sendOrderToSteadfast(_id);
+      if (result.success) created += 1;
+    } catch (err) {
+      console.error(`[Steadfast] Auto entry failed for order ${_id}:`, err.message);
+    }
+  }
+
+  return { attempted: orders.length, created };
 }
 
 /**

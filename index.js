@@ -10,6 +10,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import fraudRoutes from './routes/fraudRoutes.js';
 import unfinishedOrderRoutes from './routes/unfinishedOrderRoutes.js';
+import flavourRoutes from './routes/flavourRoutes.js';
 import { initCronJobs } from './utils/cronJobs.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
@@ -45,8 +46,7 @@ app.use((req, res, next) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  const version = process.env.API_VERSION || '26080805';
-  res.json({ success: true, status: 'ok', version, uptime: process.uptime() });
+  res.json({ success: true, status: 'ok', version: '26080806', uptime: process.uptime() });
 });
 
 // Routes
@@ -58,6 +58,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/fraud', fraudRoutes);
 app.use('/api/unfinished-orders', unfinishedOrderRoutes);
+app.use('/api/flavours', flavourRoutes);
 
 // 404 + error handling
 app.use(notFound);
