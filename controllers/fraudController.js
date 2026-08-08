@@ -74,6 +74,11 @@ export async function checkIpAndFraud(req, res, next) {
       ip: clientIp,
       isAlreadyInDb,
       requiresOtp: isAlreadyInDb,
+      data: {
+        ip: clientIp,
+        isAlreadyInDb,
+        requiresOtp: isAlreadyInDb,
+      },
     });
   } catch (err) {
     next(err);
@@ -124,11 +129,16 @@ export async function sendOtp(req, res, next) {
       console.error('[Fraud OTP Error] SMS delivery failed:', smsResult.error);
     }
 
+    const isDev = process.env.NODE_ENV !== 'production';
+
     return res.json({
       success: true,
       message: 'ওটিপি (OTP) আপনার মোবাইল নম্বরে পাঠানো হয়েছে।',
-      // In development mode if SMS fails or env not configured, provide notification hint:
-      ...(process.env.NODE_ENV !== 'production' && !smsResult.success ? { devCode: otpCode } : {}),
+      ...(isDev ? { devCode: otpCode } : {}),
+      data: {
+        message: 'ওটিপি (OTP) আপনার মোবাইল নম্বরে পাঠানো হয়েছে।',
+        ...(isDev ? { devCode: otpCode } : {}),
+      },
     });
   } catch (err) {
     next(err);
@@ -164,6 +174,7 @@ export async function verifyOtp(req, res, next) {
         success: false,
         verified: false,
         error: 'ভুল ওটিপি (OTP) কোড অথবা মেয়াদ শেষ হয়ে গেছে। অনুগ্রহ করে সঠিক কোডটি দিন।',
+        data: { verified: false },
       });
     }
 
@@ -174,6 +185,10 @@ export async function verifyOtp(req, res, next) {
       success: true,
       verified: true,
       message: 'ওটিপি ভেরিফিকেশন সফল হয়েছে।',
+      data: {
+        verified: true,
+        message: 'ওটিপি ভেরিফিকেশন সফল হয়েছে।',
+      },
     });
   } catch (err) {
     next(err);
