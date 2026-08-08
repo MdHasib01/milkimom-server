@@ -46,7 +46,7 @@ app.use((req, res, next) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, status: 'ok', version: '26080807', uptime: process.uptime() });
+  res.json({ success: true, status: 'ok', version: '26080808', uptime: process.uptime() });
 });
 
 // Routes

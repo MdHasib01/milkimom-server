@@ -135,9 +135,10 @@ export async function sendOrderToSteadfast(orderId) {
     recipient_address: recipientAddress.slice(0, 250),
     // Prepaid (bKash) orders have nothing left to collect on delivery.
     cod_amount: order.paymentStatus === 'Paid' ? 0 : Number(order.price) || 0,
-    // Steadfast's create_order API has no weight parameter, so the parcel
-    // weight rides along in the item description — that is what their
-    // operators and the printed label actually show.
+    item_weight: weightKg,
+    weight: weightKg,
+    // Weight is passed explicitly as item_weight / weight for API gateways that accept it,
+    // and rides along in item_description & note for printed delivery labels.
     item_description: `${order.product || 'Milkimom Complete Dose'} - ${order.flavour} - ${weightKg} kg`,
     total_lot: 1,
     note: `Weight: ${weightKg} kg`,
