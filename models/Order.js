@@ -121,6 +121,35 @@ const orderSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Steadfast Courier consignment created automatically when the order is
+    // Confirmed. consignmentId doubles as the "already sent" guard so the
+    // entry is never duplicated (e.g. status toggled away from and back to
+    // Confirmed). steadfastStatus holds the raw courier delivery status.
+    steadfastConsignmentId: {
+      type: String,
+      default: '',
+      index: true,
+    },
+    steadfastTrackingCode: {
+      type: String,
+      default: '',
+    },
+    steadfastStatus: {
+      type: String,
+      default: '',
+    },
+    steadfastSentAt: {
+      type: Date,
+      default: null,
+    },
+    steadfastLastSyncAt: {
+      type: Date,
+      default: null,
+    },
+    steadfastLastError: {
+      type: String,
+      default: '',
+    },
     orderTime: {
       type: Date,
       default: Date.now,

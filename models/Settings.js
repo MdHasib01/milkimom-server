@@ -19,6 +19,23 @@ const settingsSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    // Steadfast Courier integration (portal.packzy.com API credentials).
+    // When enabled, orders are auto-entered as consignments the moment they
+    // are Confirmed, and delivery status is synced back on a schedule.
+    steadfastEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    steadfastApiKey: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    steadfastSecretKey: {
+      type: String,
+      trim: true,
+      default: '',
+    },
   },
   {
     timestamps: true,

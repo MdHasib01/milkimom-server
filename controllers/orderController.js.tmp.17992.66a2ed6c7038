@@ -223,11 +223,6 @@ export async function createOrderAdmin(req, res, next) {
       $or: [{ phone: phone }, { phone: normPhone }],
     }).catch((err) => console.error('[UnfinishedOrder] Clean up failed on manual order creation:', err.message));
 
-    // Manual orders are born Confirmed, so they go straight to Steadfast too.
-    sendOrderToSteadfast(order._id).catch((err) =>
-      console.error('[Steadfast Exception]', err.message)
-    );
-
     res.status(201).json({ success: true, data: order });
   } catch (err) {
     next(err);
@@ -333,10 +328,9 @@ export async function updateOrderStatus(req, res, next) {
       );
     }
 
-    // Confirmed = ready to ship: auto-enter the parcel in the Steadfast
-    // merchant account. Fire-and-forget — the admin response never waits on
-    // the courier API, and sendOrderToSteadfast itself guards against
-    // duplicate entries.
+    // A confirmed order goes straight to the courier: auto-enter it in the
+    // Steadfast merchant account. sendOrderToSteadfast dedupes internally, so
+    // toggling the status back and forth never creates a second consignment.
     if (status === 'Confirmed' && !order.steadfastConsignmentId) {
       sendOrderToSteadfast(order._id).catch((err) =>
         console.error('[Steadfast Exception]', err.message)
@@ -353,9 +347,8 @@ export async function updateOrderStatus(req, res, next) {
  * Claims the order's metaPurchaseSentAt flag atomically before sending, so
  * concurrent status updates can never double-report; releases the claim if
  * Meta rejects the event so a later re-delivery can retry.
- * Exported for the Steadfast status-sync cron, which delivers orders too.
  */
-export async function reportDeliveredPurchase(order) {
+async function reportDeliveredPurchase(order) {
   // Manual (admin-entered) orders came from message campaigns — the customer
   // already reached Meta through that channel, so never report them. Orders
   // created before the source field existed count as 'web'.
@@ -374,47 +367,6 @@ export async function reportDeliveredPurchase(order) {
       { _id: order._id },
       { $set: { metaPurchaseSentAt: null } }
     ).catch(() => {});
-  }
-}
-
-/**
- * @route   POST /api/orders/:id/steadfast
- * @desc    Manually (re)send an order to Steadfast — used from the admin
- *          dashboard when the automatic entry failed or the integration was
- *          enabled after the order was already confirmed.
- */
-export async function sendOrderToSteadfastManual(req, res, next) {
-  try {
-    if (req.admin && req.admin.role === 'moderator') {
-      return res.status(403).json({ success: false, error: 'Moderators are not permitted to send orders to Steadfast' });
-    }
-
-    const order = await Order.findById(req.params.id);
-    if (!order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-    if (order.steadfastConsignmentId) {
-      return res.status(400).json({ success: false, error: 'Order already has a Steadfast consignment' });
-    }
-    if (!['Confirmed', 'Shipped'].includes(order.status)) {
-      return res.status(400).json({ success: false, error: 'Only Confirmed or Shipped orders can be sent to Steadfast' });
-    }
-
-    // A failed earlier attempt leaves steadfastSentAt set (it doubles as the
-    // in-flight lock) — clear it so the retry can claim the order again.
-    await Order.updateOne(
-      { _id: order._id, steadfastConsignmentId: '' },
-      { $set: { steadfastSentAt: null } }
-    );
-
-    const result = await sendOrderToSteadfast(order._id);
-    if (!result.success) {
-      return res.status(502).json({ success: false, error: result.error });
-    }
-
-    res.json({ success: true, data: result.order });
-  } catch (err) {
-    next(err);
   }
 }
 
