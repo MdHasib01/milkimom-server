@@ -139,20 +139,73 @@ flavourSchema.statics.getActiveOrDefaults = async function () {
 };
 
 /**
- * Finds the flavour matching an order's stored flavour string (English or
- * Bangla name), checking the DB first and the defaults as fallback.
- * Returns null when nothing matches.
+ * Bangla/English name pairs for flavours as they have been stored on orders
+ * over time. An order placed before a product was renamed — or one that saved
+ * the English name while the catalog entry only has the Bangla one — still has
+ * to resolve to its catalog record, otherwise the configured weight and
+ * invoice code silently fall back to the defaults.
+ */
+const NAME_ALIASES = [
+  ['ডার্ক চকলেট', 'Dark Chocolate'],
+  ['ভ্যানিলা', 'Vanilla'],
+  ['কার্ডামম (এলাচ)', 'এলাচ', 'Cardamom'],
+  ['সিনামন (দারুচিনি)', 'দারুচিনি', 'Cinnamon'],
+];
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Every name this flavour might be stored under, including its alias partners. */
+function nameCandidates(name) {
+  const lower = name.toLowerCase();
+  const candidates = new Set([name]);
+
+  const groups = [
+    ...NAME_ALIASES,
+    ...DEFAULT_FLAVOURS.map((f) => [f.name, f.nameEn].filter(Boolean)),
+  ];
+  for (const group of groups) {
+    if (group.some((n) => n.toLowerCase() === lower)) {
+      group.forEach((n) => candidates.add(n));
+    }
+  }
+
+  return [...candidates];
+}
+
+/**
+ * Finds the flavour matching an order's stored flavour string, tolerating
+ * case, surrounding whitespace and Bangla/English naming. Checks the DB first
+ * and the built-in defaults as fallback; returns null when nothing matches.
  */
 flavourSchema.statics.findByOrderFlavour = async function (flavourName) {
   const name = String(flavourName || '').trim();
   if (!name) return null;
+
+  const candidates = nameCandidates(name);
+  const patterns = candidates.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i'));
+
   try {
-    const flavour = await this.findOne({ $or: [{ nameEn: name }, { name }] });
+    const flavour = await this.findOne({
+      $or: [{ name: { $in: patterns } }, { nameEn: { $in: patterns } }],
+    });
     if (flavour) return flavour;
+    console.warn(
+      `[Flavour] No catalog product matches order flavour "${name}" — falling back to built-in defaults (weight/invoice code from Settings → Products will not apply).`
+    );
   } catch (err) {
     console.warn('[Flavour] Lookup failed, checking defaults:', err.message);
   }
-  return DEFAULT_FLAVOURS.find((f) => f.nameEn === name || f.name === name) || null;
+
+  const lowered = candidates.map((c) => c.toLowerCase());
+  return (
+    DEFAULT_FLAVOURS.find(
+      (f) =>
+        lowered.includes(f.name.toLowerCase()) ||
+        (f.nameEn && lowered.includes(f.nameEn.toLowerCase()))
+    ) || null
+  );
 };
 
 const Flavour = mongoose.model('Flavour', flavourSchema);
