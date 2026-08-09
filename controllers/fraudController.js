@@ -2,6 +2,7 @@ import IpTrack from '../models/IpTrack.js';
 import OtpToken from '../models/OtpToken.js';
 import Order from '../models/Order.js';
 import UnfinishedOrder from '../models/UnfinishedOrder.js';
+import Flavour from '../models/Flavour.js';
 import { normalizePhoneNumber, isValidBdPhone } from '../utils/phone.js';
 import { checkOtpRateLimit, sendBdBulkSms } from '../utils/sms.js';
 
@@ -50,18 +51,33 @@ export async function checkIpAndFraud(req, res, next) {
 
     // Automatically log/update UnfinishedOrder when phone is checked
     if (normalizedPhone) {
+      const targetFlavour = req.body.flavour || 'Dark Chocolate';
+      let targetPrice = Number(req.body.price);
+
+      if (!targetPrice || targetPrice === 1200) {
+        const flavourDoc = await Flavour.findByOrderFlavour(targetFlavour);
+        if (flavourDoc) {
+          targetPrice = flavourDoc.offerPrice || flavourDoc.price;
+        } else {
+          targetPrice = 4990;
+        }
+      }
+
       UnfinishedOrder.updateOne(
         { phone: normalizedPhone },
         {
           $set: {
             phone: normalizedPhone,
             ipAddress: clientIp,
+            flavour: targetFlavour,
+            price: targetPrice,
             updatedAt: new Date(),
+            ...(req.body.customerName ? { customerName: req.body.customerName.trim() } : {}),
+            ...(req.body.district ? { district: req.body.district } : {}),
+            ...(req.body.thana ? { thana: req.body.thana } : {}),
+            ...(req.body.address ? { address: req.body.address } : {}),
           },
           $setOnInsert: {
-            customerName: req.body.customerName ? req.body.customerName.trim() : 'Customer',
-            flavour: req.body.flavour || 'Dark Chocolate',
-            price: req.body.price || 1200,
             status: 'Pending',
           },
         },

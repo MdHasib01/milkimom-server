@@ -34,7 +34,7 @@ const unfinishedOrderSchema = new mongoose.Schema(
     },
     price: {
       type: Number,
-      default: 1200,
+      default: 4990,
     },
     ipAddress: {
       type: String,

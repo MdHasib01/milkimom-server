@@ -1,4 +1,5 @@
 import UnfinishedOrder from '../models/UnfinishedOrder.js';
+import Flavour from '../models/Flavour.js';
 import { normalizePhoneNumber, isValidBdPhone } from '../utils/phone.js';
 import { getClientIp } from './fraudController.js';
 
@@ -20,6 +21,18 @@ export async function saveUnfinishedOrder(req, res, next) {
     const normalizedPhone = normalizePhoneNumber(phone);
     const clientIp = getClientIp(req);
 
+    const targetFlavour = flavour || 'Dark Chocolate';
+    let targetPrice = Number(price);
+
+    if (!targetPrice || targetPrice === 1200) {
+      const flavourDoc = await Flavour.findByOrderFlavour(targetFlavour);
+      if (flavourDoc) {
+        targetPrice = flavourDoc.offerPrice || flavourDoc.price;
+      } else {
+        targetPrice = 4990;
+      }
+    }
+
     const record = await UnfinishedOrder.findOneAndUpdate(
       { phone: normalizedPhone },
       {
@@ -29,8 +42,8 @@ export async function saveUnfinishedOrder(req, res, next) {
           district: district || '',
           thana: thana || '',
           address: address || '',
-          flavour: flavour || 'Dark Chocolate',
-          price: price || 1200,
+          flavour: targetFlavour,
+          price: targetPrice,
           ipAddress: clientIp,
           updatedAt: new Date(),
         },
@@ -62,13 +75,35 @@ export async function getUnfinishedOrders(req, res, next) {
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
 
-    const [orders, total] = await Promise.all([
+    const [rawOrders, total] = await Promise.all([
       UnfinishedOrder.find(filter)
         .sort({ updatedAt: -1 })
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum),
       UnfinishedOrder.countDocuments(filter),
     ]);
+
+    // Dynamically resolve product prices for returned unfinished orders
+    const catalogFlavours = await Flavour.getActiveOrDefaults();
+    const orders = await Promise.all(
+      rawOrders.map(async (doc) => {
+        const order = doc.toObject ? doc.toObject() : { ...doc };
+        if (!order.price || order.price === 1200) {
+          const flavourDoc = catalogFlavours.find(
+            (f) =>
+              (f.nameEn && f.nameEn.toLowerCase() === (order.flavour || '').toLowerCase()) ||
+              (f.name && f.name.toLowerCase() === (order.flavour || '').toLowerCase())
+          ) || (await Flavour.findByOrderFlavour(order.flavour));
+
+          if (flavourDoc) {
+            order.price = flavourDoc.offerPrice || flavourDoc.price;
+          } else {
+            order.price = 4990;
+          }
+        }
+        return order;
+      })
+    );
 
     res.json({
       success: true,
