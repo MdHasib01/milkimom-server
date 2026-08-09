@@ -42,6 +42,16 @@ const unfinishedOrderSchema = new mongoose.Schema(
       default: '',
       index: true,
     },
+    // Geolocation captured via ipinfo.io
+    ipLocation: {
+      city: { type: String, default: '' },
+      region: { type: String, default: '' },
+      country: { type: String, default: '' },
+      loc: { type: String, default: '' },
+      org: { type: String, default: '' },
+      postal: { type: String, default: '' },
+      timezone: { type: String, default: '' },
+    },
     status: {
       type: String,
       enum: ['Pending', 'Called User', 'Cancelled', 'Spam'],

@@ -2,6 +2,7 @@ import UnfinishedOrder from '../models/UnfinishedOrder.js';
 import Flavour from '../models/Flavour.js';
 import { normalizePhoneNumber, isValidBdPhone } from '../utils/phone.js';
 import { getClientIp } from './fraudController.js';
+import { getIpLocationIfEnabled } from '../utils/ipinfo.js';
 
 /**
  * @route   POST /api/unfinished-orders
@@ -33,21 +34,29 @@ export async function saveUnfinishedOrder(req, res, next) {
       }
     }
 
+    let ipLocation = null;
+    if (clientIp) {
+      ipLocation = await getIpLocationIfEnabled(clientIp);
+    }
+
+    const updateFields = {
+      customerName: customerName ? customerName.trim() : 'Customer',
+      phone: normalizedPhone,
+      district: district || '',
+      thana: thana || '',
+      address: address || '',
+      flavour: targetFlavour,
+      price: targetPrice,
+      ipAddress: clientIp,
+      updatedAt: new Date(),
+    };
+    if (ipLocation) {
+      updateFields.ipLocation = ipLocation;
+    }
+
     const record = await UnfinishedOrder.findOneAndUpdate(
       { phone: normalizedPhone },
-      {
-        $set: {
-          customerName: customerName ? customerName.trim() : 'Customer',
-          phone: normalizedPhone,
-          district: district || '',
-          thana: thana || '',
-          address: address || '',
-          flavour: targetFlavour,
-          price: targetPrice,
-          ipAddress: clientIp,
-          updatedAt: new Date(),
-        },
-      },
+      { $set: updateFields },
       { upsert: true, new: true }
     );
 

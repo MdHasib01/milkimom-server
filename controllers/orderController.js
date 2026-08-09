@@ -8,6 +8,7 @@ import { sendBdBulkSms } from '../utils/sms.js';
 import { sendMetaPurchase } from '../utils/metaCapi.js';
 import { sendOrderToSteadfast, checkSteadfastFraud } from '../utils/steadfast.js';
 import { getClientIp } from './fraudController.js';
+import { getIpLocationIfEnabled } from '../utils/ipinfo.js';
 
 const FLAVOUR_MAP = {
   'ডার্ক চকলেট': 'Dark Chocolate',
@@ -122,6 +123,11 @@ export async function createOrder(req, res, next) {
       }
     }
 
+    let ipLocation = null;
+    if (clientIp) {
+      ipLocation = await getIpLocationIfEnabled(clientIp);
+    }
+
     const order = await Order.create({
       product: product || 'Milkimom Complete Dose',
       customerName: customerName ? customerName.trim() : 'Customer',
@@ -139,6 +145,7 @@ export async function createOrder(req, res, next) {
       screenshotUploaded: Boolean(screenshotUploaded),
       pageUrl: pageUrl || '',
       ipAddress: clientIp || '',
+      ipLocation: ipLocation || {},
       userAgent: req.headers['user-agent'] || '',
       fbp: typeof fbp === 'string' ? fbp.slice(0, 200) : '',
       fbc: typeof fbc === 'string' ? fbc.slice(0, 500) : '',

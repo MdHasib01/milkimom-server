@@ -36,6 +36,16 @@ const settingsSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    // ipinfo.io IP Geolocation integration
+    ipinfoEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    ipinfoToken: {
+      type: String,
+      trim: true,
+      default: '',
+    },
   },
   {
     timestamps: true,
