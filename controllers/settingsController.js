@@ -1,4 +1,6 @@
 import Settings from '../models/Settings.js';
+import Order from '../models/Order.js';
+import UnfinishedOrder from '../models/UnfinishedOrder.js';
 import { isValidBdPhone } from '../utils/phone.js';
 import { getSteadfastBalance } from '../utils/steadfast.js';
 import { fetchIpInfo } from '../utils/ipinfo.js';
@@ -164,11 +166,13 @@ export async function testIpinfoConnection(req, res, next) {
 
 /**
  * @route   GET /api/settings/ipinfo/lookup/:ip
- * @desc    On-demand IP geolocation lookup using configured ipinfo.io integration
+ * @desc    On-demand IP geolocation lookup using configured ipinfo.io integration.
+ *          Persists the fetched ipLocation to database for the given order or all matching records.
  */
 export async function lookupIpLocation(req, res, next) {
   try {
     const { ip } = req.params;
+    const { orderId, type } = req.query;
     if (!ip) {
       return res.status(400).json({ success: false, error: 'IP address is required' });
     }
@@ -177,6 +181,26 @@ export async function lookupIpLocation(req, res, next) {
     const result = await fetchIpInfo(ip, settings.ipinfoToken);
     if (!result.success) {
       return res.status(502).json({ success: false, error: result.error });
+    }
+
+    // Save fetched location data to MongoDB so it persists permanently for the order(s)
+    if (result.data) {
+      try {
+        if (orderId) {
+          if (type === 'unfinished') {
+            await UnfinishedOrder.findByIdAndUpdate(orderId, { $set: { ipLocation: result.data } });
+          } else {
+            await Order.findByIdAndUpdate(orderId, { $set: { ipLocation: result.data } });
+          }
+        } else {
+          await Promise.all([
+            Order.updateMany({ ipAddress: ip }, { $set: { ipLocation: result.data } }),
+            UnfinishedOrder.updateMany({ ipAddress: ip }, { $set: { ipLocation: result.data } }),
+          ]);
+        }
+      } catch (saveErr) {
+        console.error('[lookupIpLocation] Failed to persist location to DB:', saveErr.message);
+      }
     }
 
     res.json({ success: true, data: result.data });
