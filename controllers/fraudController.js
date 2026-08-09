@@ -194,3 +194,26 @@ export async function verifyOtp(req, res, next) {
     next(err);
   }
 }
+
+/**
+ * @route   GET /api/fraud/steadfast-check
+ * @desc    Check courier delivery history & fraud reports via Steadfast API for any phone number
+ */
+export async function checkSteadfastFraudByPhone(req, res, next) {
+  try {
+    const { phone } = req.query;
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'Phone number is required' });
+    }
+
+    const { checkSteadfastFraud } = await import('../utils/steadfast.js');
+    const result = await checkSteadfastFraud(phone);
+    if (!result.success) {
+      return res.status(400).json({ success: false, error: result.error });
+    }
+
+    res.json({ success: true, data: result.data });
+  } catch (err) {
+    next(err);
+  }
+}

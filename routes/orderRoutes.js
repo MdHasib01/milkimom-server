@@ -8,6 +8,7 @@ import {
   updateOrder,
   deleteOrder,
   bulkDeleteOrders,
+  checkOrderFraud,
 } from '../controllers/orderController.js';
 import { requireAdmin } from '../middleware/auth.js';
 
@@ -23,6 +24,7 @@ router.post('/admin', requireAdmin, createOrderAdmin);
 router.get('/', requireAdmin, getOrders);
 router.patch('/:id/status', requireAdmin, updateOrderStatus);
 router.patch('/:id', requireAdmin, updateOrder);
+router.post('/:id/check-fraud', requireAdmin, checkOrderFraud);
 router.delete('/bulk', requireAdmin, bulkDeleteOrders);
 router.delete('/:id', requireAdmin, deleteOrder);
 

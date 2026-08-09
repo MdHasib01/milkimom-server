@@ -152,6 +152,16 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    // Steadfast Fraud Check metrics (fetched via GET /fraud_check/:phone)
+    steadfastFraud: {
+      totalParcels: { type: Number, default: null },
+      totalDelivered: { type: Number, default: null },
+      totalCancelled: { type: Number, default: null },
+      totalFraudReports: { type: Number, default: null },
+      successRate: { type: Number, default: null },
+      checkedAt: { type: Date, default: null },
+      error: { type: String, default: '' },
+    },
     orderTime: {
       type: Date,
       default: Date.now,

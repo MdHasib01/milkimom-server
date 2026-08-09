@@ -6,7 +6,7 @@ import { isValidBdPhone, normalizePhoneNumber } from '../utils/phone.js';
 import { sendAdminOrderEmail, sendCustomerOrderEmail } from '../utils/email.js';
 import { sendBdBulkSms } from '../utils/sms.js';
 import { sendMetaPurchase } from '../utils/metaCapi.js';
-import { sendOrderToSteadfast } from '../utils/steadfast.js';
+import { sendOrderToSteadfast, checkSteadfastFraud } from '../utils/steadfast.js';
 import { getClientIp } from './fraudController.js';
 
 const FLAVOUR_MAP = {
@@ -162,11 +162,14 @@ export async function createOrder(req, res, next) {
     sendAdminOrderEmail(order).catch((err) =>
       console.error('[Admin Email Exception]', err.message)
     );
-    if (order.email) {
-      sendCustomerOrderEmail(order).catch((err) =>
-        console.error('[Customer Email Exception]', err.message)
-      );
-    }
+    // Automatically query Steadfast Fraud Check for every new order in the background
+    checkSteadfastFraud(order.phone)
+      .then(async (fraudRes) => {
+        if (fraudRes.success && fraudRes.data) {
+          await Order.findByIdAndUpdate(order._id, { $set: { steadfastFraud: fraudRes.data } });
+        }
+      })
+      .catch((err) => console.error('[Steadfast Fraud Check Error]', err.message));
 
     res.status(201).json({ success: true, data: order });
   } catch (err) {
@@ -261,6 +264,19 @@ export async function getOrders(req, res, next) {
         .limit(limitNum),
       Order.countDocuments(filter),
     ]);
+
+    // Asynchronously check Steadfast fraud status for any returned orders that haven't been checked yet
+    const uncheckedOrders = orders.filter((o) => !o.steadfastFraud?.checkedAt);
+    if (uncheckedOrders.length > 0) {
+      Promise.allSettled(
+        uncheckedOrders.map(async (o) => {
+          const fraudRes = await checkSteadfastFraud(o.phone);
+          if (fraudRes.success && fraudRes.data) {
+            await Order.findByIdAndUpdate(o._id, { $set: { steadfastFraud: fraudRes.data } });
+          }
+        })
+      ).catch(() => {});
+    }
 
     res.json({
       success: true,
@@ -485,6 +501,38 @@ export async function deleteOrder(req, res, next) {
 
     await Order.findByIdAndDelete(req.params.id);
     res.json({ success: true, data: { id: req.params.id, deleted: true } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @route   POST /api/orders/:id/check-fraud
+ * @desc    Fetch Steadfast Courier Fraud Check data for an order and store it
+ */
+export async function checkOrderFraud(req, res, next) {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    const fraudRes = await checkSteadfastFraud(order.phone);
+    if (!fraudRes.success || !fraudRes.data) {
+      const errorMsg = fraudRes.error || 'Failed to retrieve fraud data';
+      await Order.findByIdAndUpdate(order._id, {
+        $set: { 'steadfastFraud.error': errorMsg, 'steadfastFraud.checkedAt': new Date() },
+      });
+      return res.status(400).json({ success: false, error: errorMsg });
+    }
+
+    const updated = await Order.findByIdAndUpdate(
+      order._id,
+      { $set: { steadfastFraud: { ...fraudRes.data, error: '' } } },
+      { new: true }
+    );
+
+    res.json({ success: true, data: updated });
   } catch (err) {
     next(err);
   }

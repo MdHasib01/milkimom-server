@@ -186,6 +186,15 @@ export async function sendOrderToSteadfast(orderId) {
       { new: true }
     );
 
+    // Trigger background fraud check for this order's recipient phone
+    checkSteadfastFraud(order.phone)
+      .then(async (fraudRes) => {
+        if (fraudRes.success && fraudRes.data) {
+          await Order.findByIdAndUpdate(order._id, { $set: { steadfastFraud: fraudRes.data } });
+        }
+      })
+      .catch((err) => console.error('[Steadfast Fraud Check Error]', err.message));
+
     console.log(
       `[Steadfast] Consignment ${consignment.consignment_id} (${consignment.tracking_code}) created for order ${order._id} (${maskPhoneNumber(order.phone)})`
     );
@@ -317,4 +326,56 @@ export async function syncSteadfastStatuses(onDelivered) {
   }
 
   return { synced: orders.length, updated };
+}
+
+/**
+ * Checks customer delivery history and fraud reports via Steadfast Courier API (GET /fraud_check/:phone).
+ * Returns { success: true, data: { totalParcels, totalDelivered, totalCancelled, totalFraudReports, successRate, checkedAt } }
+ */
+export async function checkSteadfastFraud(phone) {
+  const config = await getSteadfastConfig();
+  if (!config) {
+    return { success: false, error: 'Steadfast is not configured or disabled' };
+  }
+
+  const cleanPhone = toLocalPhone(phone);
+  if (!cleanPhone || cleanPhone.length < 11) {
+    return { success: false, error: 'Invalid phone number for fraud check' };
+  }
+
+  try {
+    const { ok, body } = await steadfastRequest(config, `/fraud_check/${cleanPhone}`, {
+      method: 'GET',
+    });
+
+    if (!ok || (body?.status !== undefined && body?.status !== 200 && body?.status !== '200')) {
+      const errText = body?.message || `Steadfast fraud check failed (HTTP status ${body?.status || 400})`;
+      return { success: false, error: errText };
+    }
+
+    const totalParcels = Number(body?.Total_parcels ?? body?.total_parcels ?? 0);
+    const totalDelivered = Number(body?.total_delivered ?? 0);
+    const totalCancelled = Number(body?.total_cancelled ?? 0);
+    const fraudReportsRaw = body?.total_fraud_reports;
+    const totalFraudReports = Array.isArray(fraudReportsRaw)
+      ? fraudReportsRaw.length
+      : Number(fraudReportsRaw || 0);
+
+    const successRate = totalParcels > 0 ? Math.round((totalDelivered / totalParcels) * 100) : null;
+
+    return {
+      success: true,
+      data: {
+        totalParcels,
+        totalDelivered,
+        totalCancelled,
+        totalFraudReports,
+        successRate,
+        checkedAt: new Date(),
+      },
+    };
+  } catch (err) {
+    console.error(`[Steadfast Fraud Check Error] Phone ${cleanPhone}:`, err.message);
+    return { success: false, error: `Could not reach Steadfast fraud API: ${err.message}` };
+  }
 }
