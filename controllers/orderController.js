@@ -110,7 +110,17 @@ export async function createOrder(req, res, next) {
     }
 
     const isPrepaid = paymentMethod === 'Paid' || paymentMethod === 'bKash';
-    const clientIp = getClientIp(req);
+    let clientIp = req.body.ipAddress || getClientIp(req);
+    const normPhone = normalizePhoneNumber(phone);
+
+    if (!clientIp || clientIp === '127.0.0.1' || clientIp === '::1') {
+      const unfinished = await UnfinishedOrder.findOne({
+        $or: [{ phone: phone }, { phone: normPhone }],
+      });
+      if (unfinished?.ipAddress) {
+        clientIp = unfinished.ipAddress;
+      }
+    }
 
     const order = await Order.create({
       product: product || 'Milkimom Complete Dose',
@@ -128,7 +138,7 @@ export async function createOrder(req, res, next) {
       transactionId: transactionId || '',
       screenshotUploaded: Boolean(screenshotUploaded),
       pageUrl: pageUrl || '',
-      ipAddress: clientIp,
+      ipAddress: clientIp || '',
       userAgent: req.headers['user-agent'] || '',
       fbp: typeof fbp === 'string' ? fbp.slice(0, 200) : '',
       fbc: typeof fbc === 'string' ? fbc.slice(0, 500) : '',
@@ -147,7 +157,6 @@ export async function createOrder(req, res, next) {
     ).catch((err) => console.error('[IpTrack Error] Failed to update IP log on order creation:', err));
 
     // Remove from UnfinishedOrder collection now that order is successfully completed!
-    const normPhone = normalizePhoneNumber(phone);
     UnfinishedOrder.deleteMany({
       $or: [{ phone: phone }, { phone: normPhone }],
     }).catch((err) => console.error('[UnfinishedOrder] Clean up failed on order creation:', err.message));
@@ -206,6 +215,15 @@ export async function createOrderAdmin(req, res, next) {
 
     const isPrepaid = paymentMethod === 'Paid' || paymentMethod === 'bKash';
     const adminInfo = req.admin ? `${req.admin.name} (${req.admin.role || 'admin'})` : 'Admin';
+    const normPhone = normalizePhoneNumber(phone);
+    let clientIp = req.body.ipAddress || getClientIp(req);
+
+    const unfinished = await UnfinishedOrder.findOne({
+      $or: [{ phone: phone }, { phone: normPhone }],
+    });
+    if (unfinished?.ipAddress && (!clientIp || clientIp === '127.0.0.1' || clientIp === '::1')) {
+      clientIp = unfinished.ipAddress;
+    }
 
     const order = await Order.create({
       product: 'Milkimom Complete Dose',
@@ -217,6 +235,7 @@ export async function createOrderAdmin(req, res, next) {
       paymentStatus: isPrepaid ? 'Paid' : 'COD',
       price: priceNum,
       transactionId: transactionId || '',
+      ipAddress: clientIp || '',
       orderTime: new Date(),
       status: 'Confirmed',
       source: 'admin',
@@ -226,7 +245,6 @@ export async function createOrderAdmin(req, res, next) {
 
     // The customer may have abandoned the web form before ordering via chat —
     // that unfinished record is resolved now.
-    const normPhone = normalizePhoneNumber(phone);
     UnfinishedOrder.deleteMany({
       $or: [{ phone: phone }, { phone: normPhone }],
     }).catch((err) => console.error('[UnfinishedOrder] Clean up failed on manual order creation:', err.message));
