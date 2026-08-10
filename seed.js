@@ -13,6 +13,7 @@ import mongoose from 'mongoose';
 import { connectDB } from './config/db.js';
 import AdminUser from './models/AdminUser.js';
 import Settings from './models/Settings.js';
+import LandingPageTheme from './models/LandingPageTheme.js';
 
 dotenv.config();
 
@@ -28,6 +29,11 @@ async function seed() {
   // Settings singleton (admin email / mobile configurable later in dashboard)
   const settings = await Settings.getGlobal();
   console.log(`[Seed] Settings ready (adminEmail: "${settings.adminEmail || '-'}", adminMobile: "${settings.adminMobile || '-'}")`);
+
+  // Default product landing page themes
+  const milkimomTheme = await LandingPageTheme.getThemeBySlug('milkimom');
+  const smoothflowTheme = await LandingPageTheme.getThemeBySlug('smoothflow');
+  console.log(`[Seed] Product Landing Themes ready: "${milkimomTheme.productSlug}" (${milkimomTheme.themeColor}), "${smoothflowTheme.productSlug}" (${smoothflowTheme.themeColor})`);
 
   const existing = await AdminUser.findOne({ email });
   if (existing) {

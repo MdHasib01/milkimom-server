@@ -11,6 +11,7 @@ import statsRoutes from './routes/statsRoutes.js';
 import fraudRoutes from './routes/fraudRoutes.js';
 import unfinishedOrderRoutes from './routes/unfinishedOrderRoutes.js';
 import flavourRoutes from './routes/flavourRoutes.js';
+import customizationRoutes from './routes/customizationRoutes.js';
 import { initCronJobs } from './utils/cronJobs.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
@@ -59,6 +60,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/fraud', fraudRoutes);
 app.use('/api/unfinished-orders', unfinishedOrderRoutes);
 app.use('/api/flavours', flavourRoutes);
+app.use('/api/customization', customizationRoutes);
 
 // 404 + error handling
 app.use(notFound);
