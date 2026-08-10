@@ -89,11 +89,11 @@ export async function checkIpAndFraud(req, res, next) {
       success: true,
       ip: clientIp,
       isAlreadyInDb,
-      requiresOtp: isAlreadyInDb,
+      requiresOtp: false,
       data: {
         ip: clientIp,
         isAlreadyInDb,
-        requiresOtp: isAlreadyInDb,
+        requiresOtp: false,
       },
     });
   } catch (err) {
