@@ -36,6 +36,8 @@ function pickFlavourFields(body) {
   }
   if (body.invoiceCode !== undefined) fields.invoiceCode = String(body.invoiceCode).trim();
   if (body.tag !== undefined) fields.tag = String(body.tag).trim();
+  if (body.image !== undefined) fields.image = String(body.image).trim();
+  if (body.smoothflowImage !== undefined) fields.smoothflowImage = String(body.smoothflowImage).trim();
   if (body.active !== undefined) fields.active = Boolean(body.active);
   if (body.sortOrder !== undefined) fields.sortOrder = Number(body.sortOrder) || 0;
   return fields;

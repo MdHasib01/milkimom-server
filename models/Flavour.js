@@ -58,6 +58,18 @@ const flavourSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    // Standard product image URL
+    image: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    // SmoothFlow variant product image URL
+    smoothflowImage: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     active: {
       type: Boolean,
       default: true,
