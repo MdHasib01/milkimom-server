@@ -1,4 +1,5 @@
 import LandingPageTheme, { DEFAULT_THEMES } from '../models/LandingPageTheme.js';
+import LandingPageContent, { DEFAULT_CONTENTS } from '../models/LandingPageContent.js';
 
 const HEX_COLOR_REGEX = /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/;
 
@@ -24,12 +25,28 @@ export async function getPublicTheme(req, res, next) {
 }
 
 /**
+ * @route   GET /api/customization/content/public/:slug?
+ * @desc    Get public landing page section content by product slug
+ */
+export async function getPublicContent(req, res, next) {
+  try {
+    const slug = req.params.slug || req.query.product || 'milkimom';
+    const content = await LandingPageContent.getContentBySlug(slug);
+    res.json({
+      success: true,
+      data: content,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * @route   GET /api/customization/admin
  * @desc    Get all product landing page themes for Admin panel
  */
 export async function getAdminThemes(req, res, next) {
   try {
-    // Ensure default themes exist in DB
     await LandingPageTheme.getThemeBySlug('milkimom');
     await LandingPageTheme.getThemeBySlug('smoothflow');
 
@@ -38,6 +55,24 @@ export async function getAdminThemes(req, res, next) {
       success: true,
       data: themes,
       defaultPresets: DEFAULT_THEMES,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @route   GET /api/customization/content/admin/:slug?
+ * @desc    Get section content for a product landing page in Admin panel
+ */
+export async function getAdminContent(req, res, next) {
+  try {
+    const slug = req.params.slug || 'milkimom';
+    const content = await LandingPageContent.getContentBySlug(slug);
+    res.json({
+      success: true,
+      data: content,
+      defaultPresets: DEFAULT_CONTENTS[slug] || DEFAULT_CONTENTS.milkimom,
     });
   } catch (err) {
     next(err);
@@ -102,6 +137,68 @@ export async function updateAdminTheme(req, res, next) {
 }
 
 /**
+ * @route   PUT /api/customization/content/admin/:slug
+ * @desc    Update section content for a specific product landing page
+ */
+export async function updateAdminContent(req, res, next) {
+  try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({
+        success: false,
+        error: 'Moderators are not permitted to edit section content',
+      });
+    }
+
+    const { slug } = req.params;
+    const normalizedSlug = String(slug).toLowerCase().trim();
+
+    let content = await LandingPageContent.findOne({ productSlug: normalizedSlug });
+    if (!content) {
+      content = await LandingPageContent.getContentBySlug(normalizedSlug);
+    }
+
+    const fields = [
+      'announcementText',
+      'heroBadge',
+      'heroTitle',
+      'heroTitleHighlight',
+      'heroSubtitle',
+      'heroSubtitleHighlight',
+      'heroCtaText',
+      'heroImage',
+      'doctorTitle',
+      'doctorName',
+      'doctorDegree',
+      'doctorQuote',
+      'doctorImage',
+      'orderHeadline',
+      'orderSubheadline',
+      'guaranteeTitle',
+      'guaranteeText',
+      'footerText',
+      'footerPhone',
+      'footerEmail',
+      'footerAddress',
+    ];
+
+    for (const field of fields) {
+      if (req.body[field] !== undefined) {
+        content[field] = String(req.body[field]).trim();
+      }
+    }
+
+    await content.save();
+
+    res.json({
+      success: true,
+      data: content,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * @route   POST /api/customization/admin/:slug/reset
  * @desc    Reset theme colors for a specific product landing page back to default palette
  */
@@ -128,8 +225,34 @@ export async function resetAdminTheme(req, res, next) {
 }
 
 /**
+ * @route   POST /api/customization/content/admin/:slug/reset
+ * @desc    Reset section content for a specific product landing page back to default content
+ */
+export async function resetAdminContent(req, res, next) {
+  try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({
+        success: false,
+        error: 'Moderators are not permitted to reset section content',
+      });
+    }
+
+    const { slug } = req.params;
+    const content = await LandingPageContent.resetContentToDefault(slug);
+
+    res.json({
+      success: true,
+      message: `Section content reset to default successfully`,
+      data: content,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * @route   POST /api/customization/admin
- * @desc    Create a new product landing page theme configuration
+ * @desc    Create a new product landing page theme & content configuration
  */
 export async function createAdminTheme(req, res, next) {
   try {
@@ -168,9 +291,44 @@ export async function createAdminTheme(req, res, next) {
       backgroundColor: isValidHexColor(backgroundColor) ? backgroundColor.trim() : defaultBase.backgroundColor,
     });
 
+    // Also initialize section content
+    await LandingPageContent.getContentBySlug(normalizedSlug);
+
     res.status(201).json({
       success: true,
       data: theme,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * @route   POST /api/customization/upload/:slug
+ * @desc    Upload image asset directly to server uploads folder per product landing page
+ */
+export async function uploadImageAsset(req, res, next) {
+  try {
+    if (req.admin && req.admin.role === 'moderator') {
+      return res.status(403).json({
+        success: false,
+        error: 'Moderators are not permitted to upload image assets',
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No image file uploaded' });
+    }
+
+    const slug = req.params.slug || 'milkimom';
+    const normalizedSlug = String(slug).toLowerCase().trim();
+    const relativeUrl = `/uploads/${normalizedSlug}/${req.file.filename}`;
+
+    res.json({
+      success: true,
+      message: 'Image uploaded successfully to server asset folder',
+      url: relativeUrl,
+      filename: req.file.filename,
     });
   } catch (err) {
     next(err);

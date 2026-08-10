@@ -11,6 +11,7 @@ import statsRoutes from './routes/statsRoutes.js';
 import fraudRoutes from './routes/fraudRoutes.js';
 import unfinishedOrderRoutes from './routes/unfinishedOrderRoutes.js';
 import flavourRoutes from './routes/flavourRoutes.js';
+import path from 'path';
 import customizationRoutes from './routes/customizationRoutes.js';
 import { initCronJobs } from './utils/cronJobs.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
@@ -38,6 +39,9 @@ app.use(
 );
 
 app.use(express.json());
+
+// Serve static uploaded assets
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Request logging
 app.use((req, res, next) => {

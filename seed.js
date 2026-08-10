@@ -14,6 +14,7 @@ import { connectDB } from './config/db.js';
 import AdminUser from './models/AdminUser.js';
 import Settings from './models/Settings.js';
 import LandingPageTheme from './models/LandingPageTheme.js';
+import LandingPageContent from './models/LandingPageContent.js';
 
 dotenv.config();
 
@@ -34,6 +35,11 @@ async function seed() {
   const milkimomTheme = await LandingPageTheme.getThemeBySlug('milkimom');
   const smoothflowTheme = await LandingPageTheme.getThemeBySlug('smoothflow');
   console.log(`[Seed] Product Landing Themes ready: "${milkimomTheme.productSlug}" (${milkimomTheme.themeColor}), "${smoothflowTheme.productSlug}" (${smoothflowTheme.themeColor})`);
+
+  // Default section content
+  const milkimomContent = await LandingPageContent.getContentBySlug('milkimom');
+  const smoothflowContent = await LandingPageContent.getContentBySlug('smoothflow');
+  console.log(`[Seed] Section Content ready: "${milkimomContent.productSlug}", "${smoothflowContent.productSlug}"`);
 
   const existing = await AdminUser.findOne({ email });
   if (existing) {
