@@ -187,6 +187,15 @@ export async function updateAdminContent(req, res, next) {
       }
     }
 
+    if (req.body.productName !== undefined) content.productName = String(req.body.productName).trim();
+    if (req.body.productNameEn !== undefined) content.productNameEn = String(req.body.productNameEn).trim();
+    if (req.body.carouselItems !== undefined) {
+      content.carouselItems = Array.isArray(req.body.carouselItems) ? req.body.carouselItems : [];
+    }
+    if (req.body.doctorItems !== undefined) {
+      content.doctorItems = Array.isArray(req.body.doctorItems) ? req.body.doctorItems : [];
+    }
+
     await content.save();
 
     res.json({
