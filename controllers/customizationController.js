@@ -339,6 +339,7 @@ export async function uploadImageAsset(req, res, next) {
       success: true,
       message: 'Image uploaded successfully to server asset folder',
       url: relativeUrl,
+      data: { url: relativeUrl, filename: req.file.filename },
       filename: req.file.filename,
     });
   } catch (err) {
