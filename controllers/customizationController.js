@@ -158,6 +158,8 @@ export async function updateAdminContent(req, res, next) {
     }
 
     const fields = [
+      'logoType',
+      'logoImage',
       'announcementText',
       'heroBadge',
       'heroTitle',
