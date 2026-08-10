@@ -4,6 +4,8 @@ import mongoose from 'mongoose';
 export const DEFAULT_CONTENTS = {
   milkimom: {
     productSlug: 'milkimom',
+    productName: 'মিল্কিমম',
+    productNameEn: 'Milkimom',
     announcementText: '🎉 ১ম অর্ডারেই ১০০% ক্যাশ অন ডেলিভারি এবং সারাদেশে হোম ডেলিভারি ফ্রি!',
     heroBadge: '১০০% সাইডইফেক্ট মুক্ত ও ন্যাচারাল',
     heroTitle: '১ ডোজেই, পার্মানেন্টলি বুকের দুধ বাড়াতে মিল্কিমম খান নিশ্চিন্তে!',
@@ -28,6 +30,8 @@ export const DEFAULT_CONTENTS = {
   },
   smoothflow: {
     productSlug: 'smoothflow',
+    productName: 'স্মুথফ্লো',
+    productNameEn: 'SmoothFlow',
     announcementText: '⚡ স্মুথফ্লো বিশেষ অফার! সারাদেশে ফ্রি ডেলিভারি ও দ্রুত সার্ভিস!',
     heroBadge: 'স্মুথফ্লো প্রিমিয়াম ন্যাচারাল ফর্মুলা',
     heroTitle: 'স্মুথফ্লো - মা ও শিশুর পরিপূর্ণ পুষ্টির আধুনিক সমাধান!',
@@ -61,6 +65,8 @@ const landingPageContentSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    productName: { type: String, default: '' },
+    productNameEn: { type: String, default: '' },
     announcementText: { type: String, default: '' },
     heroBadge: { type: String, default: '' },
     heroTitle: { type: String, default: '' },
@@ -120,6 +126,8 @@ landingPageContentSchema.statics.resetContentToDefault = async function (slug = 
     { productSlug: normalizedSlug },
     {
       $set: {
+        productName: defaultData.productName,
+        productNameEn: defaultData.productNameEn,
         announcementText: defaultData.announcementText,
         heroBadge: defaultData.heroBadge,
         heroTitle: defaultData.heroTitle,
