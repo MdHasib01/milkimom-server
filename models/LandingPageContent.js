@@ -29,6 +29,17 @@ export const DEFAULT_CONTENTS = {
     footerPhone: '01517-102603',
     footerEmail: 'milkimominfo@gmail.com',
     footerAddress: '202-J, Road-6, Mohammadiya Housing society, Mohammadpur, Dhaka.',
+    howItWorksBadge: 'কি কাজ করে?',
+    howItWorksTitle: 'একটি ডোজে ৫টি উপকারিতা',
+    howItWorksSubtitle: 'প্রকৃতি ও বিজ্ঞানের সমন্বয়ে তৈরি মিল্কিমম মা ও শিশু উভয়ের জন্যই সামগ্রিক উপকার নিয়ে আসে।',
+    howItWorksImage: '',
+    benefitsItems: [
+      { id: '1', accent: 'বুকের দুধ', rest: 'স্থায়ীভাবে বাড়ায়', sortOrder: 1 },
+      { id: '2', accent: 'বন্ধ হয়ে যাওয়া', rest: 'বুকের দুধ পুনরায় তৈরি করে', sortOrder: 2 },
+      { id: '3', accent: 'বুকের দুধের', rest: 'সব পুষ্টিগুণ বজায় রাখে', sortOrder: 3 },
+      { id: '4', accent: 'বুকের দুধ', rest: 'পাতলা হলে ঘন করে', sortOrder: 4 },
+      { id: '5', accent: 'ফর্মুলা দুধের', rest: 'খরচ বাঁচায়', sortOrder: 5 },
+    ],
     carouselItems: [
       {
         id: '1',
@@ -89,6 +100,17 @@ export const DEFAULT_CONTENTS = {
     footerPhone: '01517-102603',
     footerEmail: 'smoothflow@milkimom.com',
     footerAddress: '202-J, Road-6, Mohammadiya Housing society, Mohammadpur, Dhaka.',
+    howItWorksBadge: 'কি কাজ করে?',
+    howItWorksTitle: 'একটি ডোজে ৫টি উপকারিতা',
+    howItWorksSubtitle: 'প্রকৃতি ও বিজ্ঞানের সমন্বয়ে তৈরি স্মুথফ্লো মা ও শিশু উভয়ের জন্যই সামগ্রিক উপকার নিয়ে আসে।',
+    howItWorksImage: '',
+    benefitsItems: [
+      { id: '1', accent: '২৪ ঘন্টায়', rest: 'শক্ত চাকা ও নালীর জমাট ব্লক দূর করে', sortOrder: 1 },
+      { id: '2', accent: 'ব্যথাহীন ও সহজ', rest: 'ব্রেস্টফিডিং অনুভূতি এনে দেয়', sortOrder: 2 },
+      { id: '3', accent: 'ব্রেস্টের ভারীভাব ও চাপ', rest: 'দ্রুত উপশম করে', sortOrder: 3 },
+      { id: '4', accent: 'স্মুথ ও নিরবচ্ছিন্ন', rest: 'দুধের প্রবাহ বজায় রাখে', sortOrder: 4 },
+      { id: '5', accent: '১০০% প্রাকৃতিক ও', rest: 'সম্পূর্ণ সাইডইফেক্ট মুক্ত', sortOrder: 5 },
+    ],
     carouselItems: [
       {
         id: '1',
@@ -180,6 +202,11 @@ const landingPageContentSchema = new mongoose.Schema(
     footerPhone: { type: String, default: '' },
     footerEmail: { type: String, default: '' },
     footerAddress: { type: String, default: '' },
+    howItWorksBadge: { type: String, default: 'কি কাজ করে?' },
+    howItWorksTitle: { type: String, default: 'একটি ডোজে ৫টি উপকারিতা' },
+    howItWorksSubtitle: { type: String, default: '' },
+    howItWorksImage: { type: String, default: '' },
+    benefitsItems: { type: Array, default: [] },
     carouselItems: { type: Array, default: [] },
     doctorItems: { type: Array, default: [] },
   },
@@ -193,16 +220,38 @@ landingPageContentSchema.statics.getContentBySlug = async function (slug = 'milk
   const normalizedSlug = String(slug).toLowerCase().trim();
   let content = await this.findOne({ productSlug: normalizedSlug });
 
-  if (!content) {
-    const defaultData = DEFAULT_CONTENTS[normalizedSlug] || {
-      ...DEFAULT_CONTENTS.milkimom,
-      productSlug: normalizedSlug,
-    };
+  const defaultData = DEFAULT_CONTENTS[normalizedSlug] || {
+    ...DEFAULT_CONTENTS.milkimom,
+    productSlug: normalizedSlug,
+  };
 
+  if (!content) {
     content = await this.create({
       productSlug: normalizedSlug,
       ...defaultData,
     });
+  } else {
+    // Backfill defaults if benefitsItems or headers are missing on existing records
+    let needsSave = false;
+    if (!content.howItWorksBadge) {
+      content.howItWorksBadge = defaultData.howItWorksBadge || 'কি কাজ করে?';
+      needsSave = true;
+    }
+    if (!content.howItWorksTitle) {
+      content.howItWorksTitle = defaultData.howItWorksTitle || 'একটি ডোজে ৫টি উপকারিতা';
+      needsSave = true;
+    }
+    if (!content.howItWorksSubtitle) {
+      content.howItWorksSubtitle = defaultData.howItWorksSubtitle || '';
+      needsSave = true;
+    }
+    if (!content.benefitsItems || content.benefitsItems.length === 0) {
+      content.benefitsItems = defaultData.benefitsItems || [];
+      needsSave = true;
+    }
+    if (needsSave) {
+      await content.save();
+    }
   }
 
   return content;
@@ -245,6 +294,11 @@ landingPageContentSchema.statics.resetContentToDefault = async function (slug = 
         footerPhone: defaultData.footerPhone,
         footerEmail: defaultData.footerEmail,
         footerAddress: defaultData.footerAddress,
+        howItWorksBadge: defaultData.howItWorksBadge,
+        howItWorksTitle: defaultData.howItWorksTitle,
+        howItWorksSubtitle: defaultData.howItWorksSubtitle,
+        howItWorksImage: defaultData.howItWorksImage,
+        benefitsItems: defaultData.benefitsItems,
         carouselItems: defaultData.carouselItems,
         doctorItems: defaultData.doctorItems,
       },
