@@ -14,15 +14,6 @@ export const DEFAULT_THEMES = {
   smoothflow: {
     productSlug: 'smoothflow',
     name: 'SmoothFlow Landing',
-    themeColor: '#0284c7',       // Ocean Blue
-    accentColor: '#38bdf8',      // Sky Blue
-    ctaColor: '#f59e0b',         // Warm Amber CTA
-    ctaTextColor: '#1e293b',     // Dark Slate
-    backgroundColor: '#f0f9ff',  // Soft Cyan Light
-  },
-  stableflow: {
-    productSlug: 'stableflow',
-    name: 'StableFlow Landing',
     themeColor: '#E6106E',       // Brand Pink
     accentColor: '#f472b6',      // Pink Light Accent
     ctaColor: '#E6106E',         // Brand Pink CTA
