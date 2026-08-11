@@ -72,6 +72,7 @@ export async function checkIpAndFraud(req, res, next) {
             flavour: targetFlavour,
             price: targetPrice,
             updatedAt: new Date(),
+            ...(req.body.product || req.body.productName ? { product: req.body.product || req.body.productName } : {}),
             ...(req.body.customerName ? { customerName: req.body.customerName.trim() } : {}),
             ...(req.body.district ? { district: req.body.district } : {}),
             ...(req.body.thana ? { thana: req.body.thana } : {}),

@@ -2,6 +2,11 @@ import mongoose from 'mongoose';
 
 const unfinishedOrderSchema = new mongoose.Schema(
   {
+    product: {
+      type: String,
+      default: 'Milkimom Complete Dose',
+      trim: true,
+    },
     customerName: {
       type: String,
       default: 'Customer',
