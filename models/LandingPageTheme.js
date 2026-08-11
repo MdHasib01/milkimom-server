@@ -20,6 +20,15 @@ export const DEFAULT_THEMES = {
     ctaTextColor: '#1e293b',     // Dark Slate
     backgroundColor: '#f0f9ff',  // Soft Cyan Light
   },
+  stableflow: {
+    productSlug: 'stableflow',
+    name: 'StableFlow Landing',
+    themeColor: '#E6106E',       // Brand Pink
+    accentColor: '#f472b6',      // Pink Light Accent
+    ctaColor: '#E6106E',         // Brand Pink CTA
+    ctaTextColor: '#ffffff',     // White
+    backgroundColor: '#FFF9FB',  // Soft Pinkish White
+  },
 };
 
 const landingPageThemeSchema = new mongoose.Schema(
