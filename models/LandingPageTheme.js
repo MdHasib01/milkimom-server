@@ -93,6 +93,9 @@ landingPageThemeSchema.statics.getThemeBySlug = async function (slug = 'milkimom
       ctaTextColor: defaultData.ctaTextColor,
       backgroundColor: defaultData.backgroundColor,
     });
+  } else if (normalizedSlug === 'smoothflow' && theme.themeColor !== '#E6106E') {
+    theme.themeColor = '#E6106E';
+    await theme.save();
   }
 
   return theme;
