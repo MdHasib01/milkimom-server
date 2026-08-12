@@ -209,6 +209,10 @@ landingPageContentSchema.statics.getContentBySlug = async function (slug = 'milk
       content.footerEmail = defaultData.footerEmail || 'milkimominfo@gmail.com';
       needsSave = true;
     }
+    if (normalizedSlug === 'smoothflow' && content.heroCtaText && content.heroCtaText.includes('স্মুথফ্লো')) {
+      content.heroCtaText = content.heroCtaText.replace(/স্মুথফ্লো/g, 'SmoothFlow');
+      needsSave = true;
+    }
     if (normalizedSlug === 'smoothflow' && (content.productName === 'স্মুথফ্লো' || !content.productName)) {
       content.productName = 'SmoothFlow';
       needsSave = true;
