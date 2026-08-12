@@ -101,7 +101,7 @@ export const DEFAULT_CONTENTS = {
     footerEmail: 'milkimominfo@gmail.com',
     footerAddress: '202-J, Road-6, Mohammadiya Housing society, Mohammadpur, Dhaka.',
     howItWorksBadge: 'কি কাজ করে?',
-    howItWorksTitle: 'একটি ডোজে ৫টি উপকারিতা',
+    howItWorksTitle: 'SmoothFlow-এর ৫টি উপকারিতা',
     howItWorksSubtitle: 'প্রকৃতি ও বিজ্ঞানের সমন্বয়ে তৈরি SmoothFlow মা ও শিশু উভয়ের জন্যই সামগ্রিক উপকার নিয়ে আসে।',
     howItWorksImage: '/images/smoothflow.png',
     benefitsItems: [
@@ -185,8 +185,8 @@ landingPageContentSchema.statics.getContentBySlug = async function (slug = 'milk
       content.howItWorksBadge = defaultData.howItWorksBadge || 'কি কাজ করে?';
       needsSave = true;
     }
-    if (!content.howItWorksTitle || (normalizedSlug === 'smoothflow' && content.howItWorksTitle === 'SmoothFlow এর উপকারিতা')) {
-      content.howItWorksTitle = defaultData.howItWorksTitle || 'একটি ডোজে ৫টি উপকারিতা';
+    if (!content.howItWorksTitle || (normalizedSlug === 'smoothflow' && (content.howItWorksTitle === 'SmoothFlow এর উপকারিতা' || content.howItWorksTitle === 'একটি ডোজে ৫টি উপকারিতা'))) {
+      content.howItWorksTitle = defaultData.howItWorksTitle || 'SmoothFlow-এর ৫টি উপকারিতা';
       needsSave = true;
     }
     if (!content.howItWorksSubtitle) {
