@@ -98,7 +98,7 @@ export const DEFAULT_CONTENTS = {
     guaranteeText: 'যদি SmoothFlow ব্যবহার করে আপনি কোনো পরিবর্তন অনুভব না করেন, আমাদের জানান। আমরা আপনার সম্পূর্ণ টাকা রিফান্ড করে দেব। কোনো শর্ত প্রযোজ্য নয়।',
     footerText: 'SmoothFlow™ - মা ও সন্তানের স্বাস্থ্য সুরক্ষায় বিশ্বস্ত পার্টনার।',
     footerPhone: '01517-102603',
-    footerEmail: 'smoothflow@milkimom.com',
+    footerEmail: 'milkimominfo@gmail.com',
     footerAddress: '202-J, Road-6, Mohammadiya Housing society, Mohammadpur, Dhaka.',
     howItWorksBadge: 'কি কাজ করে?',
     howItWorksTitle: 'একটি ডোজে ৫টি উপকারিতা',
@@ -203,6 +203,10 @@ landingPageContentSchema.statics.getContentBySlug = async function (slug = 'milk
     }
     if (!content.orderSubheadline || (normalizedSlug === 'smoothflow' && content.orderSubheadline !== defaultData.orderSubheadline)) {
       content.orderSubheadline = defaultData.orderSubheadline || 'Breast Pain নিয়ে আরেকটা Feeding-এর জন্য অপেক্ষা নয়।';
+      needsSave = true;
+    }
+    if (!content.footerEmail || content.footerEmail === 'smoothflow@milkimom.com') {
+      content.footerEmail = defaultData.footerEmail || 'milkimominfo@gmail.com';
       needsSave = true;
     }
     if (needsSave) {
