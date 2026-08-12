@@ -213,11 +213,12 @@ landingPageContentSchema.statics.getContentBySlug = async function (slug = 'milk
       content.productName = 'SmoothFlow';
       needsSave = true;
     }
-    if (normalizedSlug === 'smoothflow' && (content.guaranteeTitle === '100% Satisfaction Guarantee' || !content.guaranteeTitle)) {
+    if (normalizedSlug === 'smoothflow' && (content.guaranteeTitle === '100% Satisfaction Guarantee' || content.guaranteeTitle.includes('১০০%') || !content.guaranteeTitle || content.guaranteeText.includes('পণ্য হাতে পেয়ে'))) {
       content.guaranteeTitle = '৩ দিনের Money Back Guarantee';
+      content.guaranteeText = 'যদি SmoothFlow ব্যবহার করে আপনি কোনো পরিবর্তন অনুভব না করেন, আমাদের জানান। আমরা আপনার সম্পূর্ণ টাকা রিফান্ড করে দেব। কোনো শর্ত প্রযোজ্য নয়।';
       needsSave = true;
     }
-    if (normalizedSlug === 'smoothflow' && (!content.announcementText || content.announcementText.includes('৩৯%'))) {
+    if (normalizedSlug === 'smoothflow' && (!content.announcementText || content.announcementText.includes('৩৯%') || content.announcementText.includes('--'))) {
       content.announcementText = '42% Offer শেষ হতে বাকি';
       needsSave = true;
     }
