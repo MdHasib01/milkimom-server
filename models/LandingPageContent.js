@@ -75,7 +75,7 @@ export const DEFAULT_CONTENTS = {
   },
   smoothflow: {
     productSlug: 'smoothflow',
-    productName: 'স্মুথফ্লো',
+    productName: 'SmoothFlow',
     productNameEn: 'SmoothFlow',
     logoType: 'text',
     logoImage: '/images/logo.webp',
@@ -102,7 +102,7 @@ export const DEFAULT_CONTENTS = {
     footerAddress: '202-J, Road-6, Mohammadiya Housing society, Mohammadpur, Dhaka.',
     howItWorksBadge: 'কি কাজ করে?',
     howItWorksTitle: 'একটি ডোজে ৫টি উপকারিতা',
-    howItWorksSubtitle: 'প্রকৃতি ও বিজ্ঞানের সমন্বয়ে তৈরি স্মুথফ্লো মা ও শিশু উভয়ের জন্যই সামগ্রিক উপকার নিয়ে আসে।',
+    howItWorksSubtitle: 'প্রকৃতি ও বিজ্ঞানের সমন্বয়ে তৈরি SmoothFlow মা ও শিশু উভয়ের জন্যই সামগ্রিক উপকার নিয়ে আসে।',
     howItWorksImage: '/images/smoothflow.png',
     benefitsItems: [
       { id: '1', accent: 'Breast Pain', rest: 'থেকে মুক্তি দেয়', sortOrder: 1 },
@@ -207,6 +207,10 @@ landingPageContentSchema.statics.getContentBySlug = async function (slug = 'milk
     }
     if (!content.footerEmail || content.footerEmail === 'smoothflow@milkimom.com') {
       content.footerEmail = defaultData.footerEmail || 'milkimominfo@gmail.com';
+      needsSave = true;
+    }
+    if (normalizedSlug === 'smoothflow' && (content.productName === 'স্মুথফ্লো' || !content.productName)) {
+      content.productName = 'SmoothFlow';
       needsSave = true;
     }
     if (needsSave) {
