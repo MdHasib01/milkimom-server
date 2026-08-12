@@ -197,6 +197,14 @@ landingPageContentSchema.statics.getContentBySlug = async function (slug = 'milk
       content.benefitsItems = defaultData.benefitsItems || [];
       needsSave = true;
     }
+    if (!content.orderHeadline || (normalizedSlug === 'smoothflow' && content.orderHeadline !== defaultData.orderHeadline)) {
+      content.orderHeadline = defaultData.orderHeadline || 'SmoothFlow অর্ডার করুন';
+      needsSave = true;
+    }
+    if (!content.orderSubheadline || (normalizedSlug === 'smoothflow' && content.orderSubheadline !== defaultData.orderSubheadline)) {
+      content.orderSubheadline = defaultData.orderSubheadline || 'Breast Pain নিয়ে আরেকটা Feeding-এর জন্য অপেক্ষা নয়।';
+      needsSave = true;
+    }
     if (needsSave) {
       await content.save();
     }
