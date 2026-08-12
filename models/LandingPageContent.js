@@ -79,7 +79,7 @@ export const DEFAULT_CONTENTS = {
     productNameEn: 'SmoothFlow',
     logoType: 'text',
     logoImage: '/images/logo.webp',
-    announcementText: '⚡ SmoothFlow বিশেষ অফার! ৪২% ছাড় - লঞ্চ প্রাইস মাত্র ৳১,৯৯৯ (রেগুলার ৳৩,৪৫০, সাশ্রয় ৳১,৪৫১)!',
+    announcementText: '42% Offer শেষ হতে বাকি',
     heroBadge: '১০০% সাইডইফেক্ট মুক্ত ও সেফ ফর্মুলা',
     heroTitle: 'বাচ্চাকে দুধ খাওয়াতে গেলেই বুকের ব্যথা? মাত্র ২৪ ঘন্টায় মুক্তি পান।',
     heroTitleHighlight: 'মাত্র ২৪ ঘন্টায় মুক্তি পান।',
@@ -94,7 +94,7 @@ export const DEFAULT_CONTENTS = {
     doctorImage: '/assets/doctor/doctor.png',
     orderHeadline: 'SmoothFlow অর্ডার করুন',
     orderSubheadline: 'Breast Pain নিয়ে আরেকটা Feeding-এর জন্য অপেক্ষা নয়।',
-    guaranteeTitle: '100% Satisfaction Guarantee',
+    guaranteeTitle: '৩ দিনের Money Back Guarantee',
     guaranteeText: 'যদি SmoothFlow ব্যবহার করে আপনি কোনো পরিবর্তন অনুভব না করেন, আমাদের জানান। আমরা আপনার সম্পূর্ণ টাকা রিফান্ড করে দেব। কোনো শর্ত প্রযোজ্য নয়।',
     footerText: 'SmoothFlow™ - মা ও সন্তানের স্বাস্থ্য সুরক্ষায় বিশ্বস্ত পার্টনার।',
     footerPhone: '01517-102603',
@@ -211,6 +211,14 @@ landingPageContentSchema.statics.getContentBySlug = async function (slug = 'milk
     }
     if (normalizedSlug === 'smoothflow' && (content.productName === 'স্মুথফ্লো' || !content.productName)) {
       content.productName = 'SmoothFlow';
+      needsSave = true;
+    }
+    if (normalizedSlug === 'smoothflow' && (content.guaranteeTitle === '100% Satisfaction Guarantee' || !content.guaranteeTitle)) {
+      content.guaranteeTitle = '৩ দিনের Money Back Guarantee';
+      needsSave = true;
+    }
+    if (normalizedSlug === 'smoothflow' && (!content.announcementText || content.announcementText.includes('৩৯%'))) {
+      content.announcementText = '42% Offer শেষ হতে বাকি';
       needsSave = true;
     }
     if (needsSave) {
