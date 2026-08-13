@@ -39,6 +39,22 @@ const flavourSchema = new mongoose.Schema(
       default: null,
       min: 0,
     },
+    // The SmoothFlow landing (/smoothflow) sells a different product at a
+    // different price from the same flavour catalog. These two fields hold that
+    // product's prices; null falls back to SMOOTHFLOW_FALLBACK_PRICE below.
+    // Before these existed the site guessed SmoothFlow's price with
+    // `salePrice === 4990 ? 1999 : salePrice`, so any Milkimom price edit
+    // silently made SmoothFlow sell at the Milkimom price.
+    smoothflowPrice: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
+    smoothflowOfferPrice: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
     // Parcel weight in KG for the Steadfast consignment.
     weight: {
       type: Number,
@@ -91,6 +107,8 @@ export const DEFAULT_FLAVOURS = [
     description: 'রিচ, গভীর ও চকলেটি মজায় ভরপুর',
     price: 8990,
     offerPrice: 4990,
+    smoothflowPrice: 3450,
+    smoothflowOfferPrice: 1999,
     weight: 0.5,
     invoiceCode: '',
     tag: 'সবচেয়ে জনপ্রিয়',
@@ -103,6 +121,8 @@ export const DEFAULT_FLAVOURS = [
     description: 'মিষ্টি, স্মুথ ও ভ্যানিলার মধুর ছোঁয়ায়',
     price: 8990,
     offerPrice: 4990,
+    smoothflowPrice: 3450,
+    smoothflowOfferPrice: 1999,
     weight: 0.5,
     invoiceCode: '',
     tag: '',
@@ -115,6 +135,8 @@ export const DEFAULT_FLAVOURS = [
     description: 'এলাচের ঘ্রাণে এক অনন্য মজার স্বাদ',
     price: 8990,
     offerPrice: 4990,
+    smoothflowPrice: 3450,
+    smoothflowOfferPrice: 1999,
     weight: 0.5,
     invoiceCode: '',
     tag: '',
@@ -127,6 +149,8 @@ export const DEFAULT_FLAVOURS = [
     description: 'দারুচিনির উষ্ণতা, স্বাদে করে তোলে আরও স্পেশাল',
     price: 8990,
     offerPrice: 4990,
+    smoothflowPrice: 3450,
+    smoothflowOfferPrice: 1999,
     weight: 0.5,
     invoiceCode: '',
     tag: '',
@@ -218,6 +242,52 @@ flavourSchema.statics.findByOrderFlavour = async function (flavourName) {
         (f.nameEn && lowered.includes(f.nameEn.toLowerCase()))
     ) || null
   );
+};
+
+/**
+ * Prices used when the catalog has no per-product figure — the same constants
+ * the landing pages fall back to (client/src/lib/content.ts).
+ */
+export const FALLBACK_PRICES = {
+  milkimom: { regularPrice: 8990, salePrice: 4990 },
+  smoothflow: { regularPrice: 3450, salePrice: 1999 },
+};
+
+/** A usable price is a finite number greater than zero. */
+function usablePrice(value) {
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
+/**
+ * The authoritative price for a flavour on a given landing page. The browser
+ * sends a price with every order, but it is only ever a display value — this
+ * is what actually gets charged, stored and reported to Meta as the Purchase
+ * value, so the two landings can never report each other's price.
+ *
+ * Returns { regularPrice, salePrice }; salePrice is what the customer pays.
+ */
+flavourSchema.statics.resolvePrice = async function (flavourName, productSlug) {
+  const slug = productSlug === 'smoothflow' ? 'smoothflow' : 'milkimom';
+  const fallback = FALLBACK_PRICES[slug];
+
+  const flavour = await this.findByOrderFlavour(flavourName).catch(() => null);
+  if (!flavour) return { ...fallback };
+
+  const regular =
+    slug === 'smoothflow'
+      ? usablePrice(flavour.smoothflowPrice)
+      : usablePrice(flavour.price);
+  const offer =
+    slug === 'smoothflow'
+      ? usablePrice(flavour.smoothflowOfferPrice)
+      : usablePrice(flavour.offerPrice);
+
+  const regularPrice = regular ?? fallback.regularPrice;
+  // An offer above the regular price is a data-entry mistake, not a discount.
+  const salePrice = offer && offer < regularPrice ? offer : regularPrice;
+
+  return { regularPrice, salePrice };
 };
 
 const Flavour = mongoose.model('Flavour', flavourSchema);

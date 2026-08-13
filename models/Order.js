@@ -7,6 +7,16 @@ const orderSchema = new mongoose.Schema(
       default: 'Milkimom Complete Dose',
       trim: true,
     },
+    // Which landing page sold this order. The two landings sell different
+    // products at different prices from one shared flavour catalog, so this is
+    // what decides the authoritative price (Flavour.resolvePrice) and what the
+    // Meta Purchase reports as content_ids.
+    productSlug: {
+      type: String,
+      enum: ['milkimom', 'smoothflow'],
+      default: 'milkimom',
+      index: true,
+    },
     customerName: {
       type: String,
       default: 'Customer',
@@ -127,11 +137,52 @@ const orderSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
-    // Set once the delivered-order Purchase has been sent to Meta, so it is
-    // never reported twice (e.g. status toggled away from and back to Delivered).
+    // Ad-click fingerprint captured on the *landing* page and carried through
+    // to the order, so the Purchase (reported days later, on confirmation) can
+    // still be attributed. fbp/fbc above are Meta's own cookies; these are the
+    // raw click ids and campaign params, which also feed the Google Ads
+    // offline-conversion export in the admin dashboard.
+    attribution: {
+      fbclid: { type: String, default: '', trim: true },
+      gclid: { type: String, default: '', trim: true },
+      gbraid: { type: String, default: '', trim: true },
+      wbraid: { type: String, default: '', trim: true },
+      ttclid: { type: String, default: '', trim: true },
+      msclkid: { type: String, default: '', trim: true },
+      utmSource: { type: String, default: '', trim: true },
+      utmMedium: { type: String, default: '', trim: true },
+      utmCampaign: { type: String, default: '', trim: true },
+      utmTerm: { type: String, default: '', trim: true },
+      utmContent: { type: String, default: '', trim: true },
+      referrer: { type: String, default: '', trim: true },
+      landingUrl: { type: String, default: '', trim: true },
+      landingPath: { type: String, default: '', trim: true },
+      // When the visitor first arrived. Used to rebuild `fbc` in Meta's
+      // `fb.1.<click_time_ms>.<fbclid>` format with the real click time.
+      firstSeenAt: { type: Date, default: null },
+    },
+    // Set once the Purchase has been sent to Meta, so it is never reported
+    // twice (e.g. status walked Confirmed → Shipped → Delivered, or toggled
+    // away from and back to Confirmed). Claimed atomically before sending and
+    // released again if Meta rejects the event, so a retry can pick it up.
     metaPurchaseSentAt: {
       type: Date,
       default: null,
+    },
+    // Outcome of the last CAPI attempt, surfaced in the admin order drawer.
+    metaPurchaseValue: {
+      type: Number,
+      default: null,
+    },
+    metaPurchaseStatus: {
+      type: String,
+      enum: ['', 'sent', 'failed'],
+      default: '',
+    },
+    metaPurchaseError: {
+      type: String,
+      default: '',
+      trim: true,
     },
     // Steadfast Courier consignment created automatically when the order is
     // Confirmed. consignmentId doubles as the "already sent" guard so the

@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { incrementMotherCountRandomly } from '../controllers/statsController.js';
 import { pushPendingSteadfastEntries, syncSteadfastStatuses } from './steadfast.js';
-import { reportDeliveredPurchase } from '../controllers/orderController.js';
+import { reportConfirmedPurchase, sweepUnreportedPurchases } from '../controllers/orderController.js';
 
 /**
  * Initializes all cron jobs in the system.
@@ -11,8 +11,9 @@ import { reportDeliveredPurchase } from '../controllers/orderController.js';
  *  - Steadfast hourly sync: first auto-enters any Confirmed/Shipped order
  *    that has no consignment yet (retries earlier failures — no manual send
  *    exists), then pulls delivery statuses; orders the courier reports
- *    delivered/cancelled are updated automatically, and deliveries are
- *    reported to the Meta Conversions API exactly like a manual update.
+ *    delivered/cancelled are updated automatically, and are reported to the
+ *    Meta Conversions API exactly like a manual update. Finally it retries any
+ *    confirmed order whose Purchase never reached Meta.
  */
 export const initCronJobs = () => {
   console.log('[Cron] Initializing daily 12:00 AM mother count increment job...');
@@ -44,7 +45,7 @@ export const initCronJobs = () => {
     try {
       const { synced, updated } = await syncSteadfastStatuses(async (order) => {
         if (!order.metaPurchaseSentAt && order.source !== 'admin') {
-          await reportDeliveredPurchase(order);
+          await reportConfirmedPurchase(order);
         }
       });
       if (synced > 0) {
@@ -53,7 +54,15 @@ export const initCronJobs = () => {
     } catch (error) {
       console.error('[Cron Error] Steadfast status sync failed:', error);
     }
+
+    // Safety net for the Meta Purchase: a transient Graph API failure releases
+    // the order's claim, and without this sweep nothing would ever retry it.
+    try {
+      await sweepUnreportedPurchases();
+    } catch (error) {
+      console.error('[Cron Error] Meta CAPI retry sweep failed:', error);
+    }
   });
 
-  console.log('[Cron] Steadfast entry catch-up + status sync scheduled (hourly).');
+  console.log('[Cron] Steadfast catch-up + status sync + Meta CAPI retry scheduled (hourly).');
 };

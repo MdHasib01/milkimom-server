@@ -14,6 +14,16 @@ function validateFlavourBody(body, { partial = false } = {}) {
     const offerNum = Number(offerPrice);
     if (!Number.isFinite(offerNum) || offerNum < 0) return 'Offer price must be a non-negative number';
   }
+  for (const [key, label] of [
+    ['smoothflowPrice', 'SmoothFlow price'],
+    ['smoothflowOfferPrice', 'SmoothFlow offer price'],
+  ]) {
+    const value = body[key];
+    if (value !== undefined && value !== null && value !== '') {
+      const num = Number(value);
+      if (!Number.isFinite(num) || num < 0) return `${label} must be a non-negative number`;
+    }
+  }
   if (weight !== undefined && weight !== null && weight !== '') {
     const weightNum = Number(weight);
     if (!Number.isFinite(weightNum) || weightNum < 0) return 'Weight must be a non-negative number (KG)';
@@ -30,6 +40,13 @@ function pickFlavourFields(body) {
   if (body.offerPrice !== undefined) {
     fields.offerPrice =
       body.offerPrice === null || body.offerPrice === '' ? null : Number(body.offerPrice);
+  }
+  // Per-product prices for the /smoothflow landing. Empty clears back to null,
+  // which makes resolvePrice fall back to the built-in SmoothFlow constants.
+  for (const key of ['smoothflowPrice', 'smoothflowOfferPrice']) {
+    if (body[key] !== undefined) {
+      fields[key] = body[key] === null || body[key] === '' ? null : Number(body[key]);
+    }
   }
   if (body.weight !== undefined && body.weight !== null && body.weight !== '') {
     fields.weight = Number(body.weight);

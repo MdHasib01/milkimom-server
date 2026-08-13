@@ -1,4 +1,5 @@
 import Order from '../models/Order.js';
+import Flavour from '../models/Flavour.js';
 import IpTrack from '../models/IpTrack.js';
 import UnfinishedOrder from '../models/UnfinishedOrder.js';
 import Settings from '../models/Settings.js';
@@ -16,6 +17,67 @@ const FLAVOUR_MAP = {
   'এলাচ': 'Cardamom',
   'দারুচিনি': 'Cinnamon',
 };
+
+/** Default product name per landing page, used when the client sends none. */
+const PRODUCT_NAMES = {
+  milkimom: 'Milkimom Complete Dose',
+  smoothflow: 'SmoothFlow Complete Dose',
+};
+
+/**
+ * Order statuses that count as a real purchase for Meta. Confirmed is the
+ * trigger — an admin has vetted the order on /admin/orders. Shipped and
+ * Delivered are included so an order that skips Confirmed (the Steadfast sync
+ * cron can set Delivered directly) is still reported; the metaPurchaseSentAt
+ * claim guarantees only one Purchase is ever sent per order.
+ */
+export const PURCHASE_STATUSES = ['Confirmed', 'Shipped', 'Delivered'];
+
+/** Every attribution key accepted from the browser, in Order.attribution shape. */
+const ATTRIBUTION_KEYS = [
+  'fbclid',
+  'gclid',
+  'gbraid',
+  'wbraid',
+  'ttclid',
+  'msclkid',
+  'utmSource',
+  'utmMedium',
+  'utmCampaign',
+  'utmTerm',
+  'utmContent',
+  'referrer',
+  'landingUrl',
+  'landingPath',
+];
+
+function normalizeProductSlug(slug) {
+  return slug === 'smoothflow' ? 'smoothflow' : 'milkimom';
+}
+
+/**
+ * Trims client-supplied attribution down to the known keys, capping each at
+ * 500 chars — the same defensive treatment fbp/fbc already get. Returns an
+ * object holding only the keys that actually carry a value.
+ */
+function sanitizeAttribution(raw) {
+  const clean = {};
+  if (!raw || typeof raw !== 'object') return clean;
+
+  for (const key of ATTRIBUTION_KEYS) {
+    const value = raw[key];
+    if (typeof value === 'string' && value.trim()) {
+      clean[key] = value.trim().slice(0, 500);
+    }
+  }
+
+  const firstSeen = raw.firstSeenAt ? new Date(raw.firstSeenAt) : null;
+  if (firstSeen && !Number.isNaN(firstSeen.getTime())) {
+    clean.firstSeenAt = firstSeen;
+  }
+
+  return clean;
+}
 
 /**
  * Sends a confirmation SMS to the customer when an order is created.
@@ -97,6 +159,8 @@ export async function createOrder(req, res, next) {
       orderTime,
       fbp,
       fbc,
+      productSlug,
+      attribution,
     } = req.body;
 
     if (!phone) {
@@ -111,7 +175,9 @@ export async function createOrder(req, res, next) {
     }
 
     const isPrepaid = paymentMethod === 'Paid' || paymentMethod === 'bKash';
-    let clientIp = req.body.ipAddress || getClientIp(req);
+    // Server-derived IP wins: req.body.ipAddress is client-supplied and this
+    // value is sent to Meta as client_ip_address, a match key.
+    let clientIp = getClientIp(req) || req.body.ipAddress;
     const normPhone = normalizePhoneNumber(phone);
 
     if (!clientIp || clientIp === '127.0.0.1' || clientIp === '::1') {
@@ -128,8 +194,22 @@ export async function createOrder(req, res, next) {
       ipLocation = await getIpLocationIfEnabled(clientIp);
     }
 
+    const slug = normalizeProductSlug(productSlug);
+    const resolvedFlavour = FLAVOUR_MAP[flavour] || flavour || 'Dark Chocolate';
+
+    // The price the browser sent is a display value only. The catalog decides
+    // what this product actually costs on this landing page, and that is what
+    // gets stored, charged and reported to Meta as the Purchase value.
+    const { salePrice } = await Flavour.resolvePrice(resolvedFlavour, slug);
+    if (Number(price) !== salePrice) {
+      console.warn(
+        `[Order] Price mismatch for ${slug}/${resolvedFlavour}: client sent ${price}, catalog says ${salePrice}. Using ${salePrice}.`
+      );
+    }
+
     const order = await Order.create({
-      product: product || 'Milkimom Complete Dose',
+      product: product || PRODUCT_NAMES[slug],
+      productSlug: slug,
       customerName: customerName ? customerName.trim() : 'Customer',
       phone,
       alternativePhone: alternativePhone || '',
@@ -137,10 +217,10 @@ export async function createOrder(req, res, next) {
       district: district || '',
       thana: thana || '',
       address: address || '',
-      flavour: FLAVOUR_MAP[flavour] || flavour || 'Dark Chocolate',
+      flavour: resolvedFlavour,
       paymentMethod: paymentMethod || 'COD',
       paymentStatus: isPrepaid ? 'Paid' : 'COD',
-      price,
+      price: salePrice,
       transactionId: transactionId || '',
       screenshotUploaded: Boolean(screenshotUploaded),
       pageUrl: pageUrl || '',
@@ -149,6 +229,7 @@ export async function createOrder(req, res, next) {
       userAgent: req.headers['user-agent'] || '',
       fbp: typeof fbp === 'string' ? fbp.slice(0, 200) : '',
       fbc: typeof fbc === 'string' ? fbc.slice(0, 500) : '',
+      attribution: sanitizeAttribution(attribution),
       orderTime: orderTime ? new Date(orderTime) : new Date(),
       status: 'Pending',
     });
@@ -223,7 +304,7 @@ export async function createOrderAdmin(req, res, next) {
     const isPrepaid = paymentMethod === 'Paid' || paymentMethod === 'bKash';
     const adminInfo = req.admin ? `${req.admin.name} (${req.admin.role || 'admin'})` : 'Admin';
     const normPhone = normalizePhoneNumber(phone);
-    let clientIp = req.body.ipAddress || getClientIp(req);
+    let clientIp = getClientIp(req) || req.body.ipAddress;
 
     const unfinished = await UnfinishedOrder.findOne({
       $or: [{ phone: phone }, { phone: normPhone }],
@@ -370,11 +451,11 @@ export async function updateOrderStatus(req, res, next) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
-    // A delivered order is the only thing that counts as a real purchase.
-    // Report it to Meta once, ever — fire-and-forget so the admin response
-    // never waits on the Graph API.
-    if (status === 'Delivered' && !order.metaPurchaseSentAt && order.source !== 'admin') {
-      reportDeliveredPurchase(order).catch((err) =>
+    // Confirming an order is an admin vouching that it is a real sale, so that
+    // is the moment it becomes a Purchase for Meta. Report it once, ever —
+    // fire-and-forget so the admin response never waits on the Graph API.
+    if (PURCHASE_STATUSES.includes(status) && !order.metaPurchaseSentAt && order.source !== 'admin') {
+      reportConfirmedPurchase(order).catch((err) =>
         console.error('[Meta CAPI Exception]', err.message)
       );
     }
@@ -396,30 +477,140 @@ export async function updateOrderStatus(req, res, next) {
 }
 
 /**
+ * Reports a confirmed order to Meta as a Purchase.
+ *
  * Claims the order's metaPurchaseSentAt flag atomically before sending, so
  * concurrent status updates can never double-report; releases the claim if
- * Meta rejects the event so a later re-delivery can retry.
- * Exported for the Steadfast status-sync cron, which delivers orders too.
+ * Meta rejects the event so the hourly retry sweep — or a later status change
+ * — can try again. Exported for the Steadfast status-sync cron and the sweep.
  */
-export async function reportDeliveredPurchase(order) {
+export async function reportConfirmedPurchase(order) {
   // Manual (admin-entered) orders came from message campaigns — the customer
   // already reached Meta through that channel, so never report them. Orders
   // created before the source field existed count as 'web'.
-  if (order.source === 'admin') return;
+  if (order.source === 'admin') return false;
 
   const claimed = await Order.findOneAndUpdate(
     { _id: order._id, metaPurchaseSentAt: null },
     { $set: { metaPurchaseSentAt: new Date() } },
     { new: true }
   );
-  if (!claimed) return;
+  if (!claimed) return false;
 
-  const sent = await sendMetaPurchase(claimed);
-  if (!sent) {
+  const result = await sendMetaPurchase(claimed);
+
+  if (result.sent) {
     await Order.updateOne(
       { _id: order._id },
-      { $set: { metaPurchaseSentAt: null } }
+      {
+        $set: {
+          metaPurchaseStatus: 'sent',
+          metaPurchaseValue: result.value,
+          metaPurchaseError: '',
+        },
+      }
     ).catch(() => {});
+    return true;
+  }
+
+  // Release the claim so this order is picked up again.
+  await Order.updateOne(
+    { _id: order._id },
+    {
+      $set: {
+        metaPurchaseSentAt: null,
+        metaPurchaseStatus: 'failed',
+        metaPurchaseError: String(result.error || 'Unknown error').slice(0, 500),
+      },
+    }
+  ).catch(() => {});
+  return false;
+}
+
+/**
+ * Retries orders whose Purchase never reached Meta — a transient Graph API
+ * failure used to lose that order's Purchase permanently. Meta rejects events
+ * older than 7 days, so anything past that window is beyond saving.
+ * Called hourly from the cron scheduler.
+ */
+export async function sweepUnreportedPurchases(limit = 50) {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const pending = await Order.find({
+    source: { $ne: 'admin' },
+    status: { $in: PURCHASE_STATUSES },
+    metaPurchaseSentAt: null,
+    orderTime: { $gte: sevenDaysAgo },
+  })
+    .sort({ orderTime: 1 })
+    .limit(limit);
+
+  if (pending.length === 0) return { attempted: 0, sent: 0 };
+
+  let sent = 0;
+  for (const order of pending) {
+    const ok = await reportConfirmedPurchase(order).catch((err) => {
+      console.error(`[Meta CAPI Sweep] Order ${order._id} threw:`, err.message);
+      return false;
+    });
+    if (ok) sent += 1;
+  }
+
+  console.log(`[Meta CAPI Sweep] Retried ${pending.length} unreported order(s), ${sent} sent.`);
+  return { attempted: pending.length, sent };
+}
+
+/**
+ * @route   PATCH /api/orders/:id/attribution
+ * @desc    Public, fill-only: lets the thank-you page top up tracking
+ *          identifiers that were not yet available when the order was posted.
+ *          The Meta `_fbp` cookie in particular is written by fbevents.js
+ *          (loaded afterInteractive), so a fast submit can beat it.
+ *
+ *          Deliberately narrow, since it is unauthenticated: the order must
+ *          still be Pending and under 30 minutes old, only empty fields are
+ *          written (never overwritten), and the whitelist is fbp/fbc plus the
+ *          attribution subdocument. Price, status and PII are untouchable.
+ */
+export async function patchOrderAttribution(req, res, next) {
+  try {
+    const order = await Order.findById(req.params.id).select(
+      'status createdAt fbp fbc attribution'
+    );
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    const ageMs = Date.now() - new Date(order.createdAt).getTime();
+    if (order.status !== 'Pending' || ageMs > 30 * 60 * 1000) {
+      return res
+        .status(409)
+        .json({ success: false, error: 'Order is no longer accepting attribution updates' });
+    }
+
+    const { fbp, fbc, attribution } = req.body;
+    const updates = {};
+
+    if (!order.fbp && typeof fbp === 'string' && fbp.trim()) {
+      updates.fbp = fbp.trim().slice(0, 200);
+    }
+    if (!order.fbc && typeof fbc === 'string' && fbc.trim()) {
+      updates.fbc = fbc.trim().slice(0, 500);
+    }
+
+    const incoming = sanitizeAttribution(attribution);
+    for (const [key, value] of Object.entries(incoming)) {
+      if (!order.attribution?.[key]) updates[`attribution.${key}`] = value;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.json({ success: true, data: { updated: false } });
+    }
+
+    await Order.updateOne({ _id: order._id }, { $set: updates });
+    res.json({ success: true, data: { updated: true, fields: Object.keys(updates) } });
+  } catch (err) {
+    next(err);
   }
 }
 

@@ -21,6 +21,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Behind a reverse proxy in production, so X-Forwarded-For carries the real
+// customer IP. Without this every order records the proxy's address, which
+// then goes to Meta as client_ip_address — a match key for attribution.
+// TRUST_PROXY accepts a hop count ("1") or an express trust-proxy expression
+// ("loopback", a subnet list). Numeric strings must be passed as numbers, or
+// express reads them as an IP list instead of a hop count.
+const trustProxy = process.env.TRUST_PROXY || '1';
+app.set('trust proxy', /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
+
 // CORS
 const corsOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')

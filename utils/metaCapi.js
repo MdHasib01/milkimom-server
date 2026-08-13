@@ -4,10 +4,16 @@ import { normalizePhoneNumber, maskPhoneNumber } from './phone.js';
 /**
  * Meta (Facebook) Conversions API.
  *
- * Purchase is reported from the server only when an order reaches the
- * "Delivered" status — never from the browser at order time. Fake and
- * later-cancelled orders therefore never reach Meta as purchases, so ad
- * optimization learns only from real, completed sales.
+ * Purchase is reported from the server only once an order has been Confirmed
+ * by an admin — never from the browser at order time. Fake orders therefore
+ * never reach Meta as purchases, so ad optimization learns only from sales a
+ * human has vouched for.
+ *
+ * The site runs two landing pages selling two different products at two
+ * different prices from one shared pixel. They are told apart by
+ * `content_ids`/`content_name` (milkimom vs smoothflow) and by the value.
+ * Flavour is deliberately NOT reported — it is an internal catalog detail with
+ * no meaning to the ad account.
  *
  * Required env:
  *   META_PIXEL_ID          — the pixel id (same one the browser snippet uses)
@@ -20,12 +26,33 @@ import { normalizePhoneNumber, maskPhoneNumber } from './phone.js';
 
 const GRAPH_VERSION = process.env.META_GRAPH_API_VERSION || 'v23.0';
 
+/** Human-facing product name per landing page, reported as content_name. */
+const PRODUCT_LABELS = {
+  milkimom: 'Milkimom',
+  smoothflow: 'SmoothFlow',
+};
+
+/**
+ * Meta rejects events with an event_time older than 7 days. Orders are usually
+ * confirmed within a day or two, so the order time is both safe and the better
+ * signal — it sits next to the ad click. This is the margin we keep.
+ */
+const MAX_EVENT_AGE_MS = 6.5 * 24 * 60 * 60 * 1000;
+
 /** SHA-256 hex hash of a trimmed, lowercased value — Meta's required PII format. */
 function hash(value) {
   return crypto
     .createHash('sha256')
     .update(String(value).trim().toLowerCase())
     .digest('hex');
+}
+
+/** City/state match keys must be lowercase with no spaces or punctuation. */
+function hashPlace(value) {
+  const cleaned = String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9ঀ-৿]/g, '');
+  return cleaned ? hash(cleaned) : null;
 }
 
 /**
@@ -36,11 +63,13 @@ function buildUserData(order) {
   const userData = {};
 
   const phone = normalizePhoneNumber(order.phone);
-  if (phone) userData.ph = [hash(phone)];
+  const phones = [];
+  if (phone) phones.push(hash(phone));
   if (order.alternativePhone) {
     const alt = normalizePhoneNumber(order.alternativePhone);
-    if (alt && alt !== phone) userData.ph.push(hash(alt));
+    if (alt && alt !== phone) phones.push(hash(alt));
   }
+  if (phones.length) userData.ph = phones;
 
   if (order.email) userData.em = [hash(order.email)];
 
@@ -51,8 +80,16 @@ function buildUserData(order) {
     if (parts.length > 1) userData.ln = [hash(parts.slice(1).join(' '))];
   }
 
-  if (order.thana) userData.ct = [hash(order.thana)];
-  if (order.district) userData.st = [hash(order.district)];
+  // The order form collects one free-text address line, so thana/district are
+  // usually empty — fall back to the IP geolocation captured at order time.
+  const city = hashPlace(order.thana || order.ipLocation?.city);
+  if (city) userData.ct = [city];
+
+  const state = hashPlace(order.district || order.ipLocation?.region);
+  if (state) userData.st = [state];
+
+  if (order.ipLocation?.postal) userData.zp = [hash(order.ipLocation.postal)];
+
   userData.country = [hash('bd')];
   userData.external_id = [hash(order._id.toString())];
 
@@ -60,14 +97,45 @@ function buildUserData(order) {
   if (order.ipAddress) userData.client_ip_address = order.ipAddress;
   if (order.userAgent) userData.client_user_agent = order.userAgent;
   if (order.fbp) userData.fbp = order.fbp;
-  if (order.fbc) userData.fbc = order.fbc;
+
+  const fbc = order.fbc || rebuildFbc(order);
+  if (fbc) userData.fbc = fbc;
 
   return userData;
 }
 
 /**
- * Sends a Purchase event for a delivered order to the Conversions API.
- * Returns true when Meta accepted the event, false otherwise. Never throws.
+ * Reconstructs the `_fbc` cookie value from the raw fbclid captured on the
+ * landing page, for visitors whose cookie never made it onto the order.
+ *
+ * The timestamp must be when the click happened, not now — this runs days
+ * later, at confirmation time, so it uses the stored landing time.
+ */
+function rebuildFbc(order) {
+  const fbclid = order.attribution?.fbclid;
+  if (!fbclid) return '';
+
+  const firstSeen = order.attribution?.firstSeenAt || order.orderTime || order.createdAt;
+  const clickMs = firstSeen ? new Date(firstSeen).getTime() : NaN;
+  if (!Number.isFinite(clickMs)) return '';
+
+  return `fb.1.${clickMs}.${fbclid}`;
+}
+
+/** Order time when it is recent enough for Meta to accept, otherwise now. */
+function resolveEventTime(order) {
+  const raw = order.orderTime || order.createdAt;
+  const ms = raw ? new Date(raw).getTime() : NaN;
+
+  if (!Number.isFinite(ms) || Date.now() - ms > MAX_EVENT_AGE_MS) {
+    return Math.floor(Date.now() / 1000);
+  }
+  return Math.floor(ms / 1000);
+}
+
+/**
+ * Sends a Purchase event for a confirmed order to the Conversions API.
+ * Never throws. Returns { sent, value, error }.
  *
  * event_id is the order id, so even if this is ever called twice for the same
  * order Meta deduplicates it on their side.
@@ -76,29 +144,37 @@ export async function sendMetaPurchase(order) {
   const pixelId = process.env.META_PIXEL_ID;
   const accessToken = process.env.META_CAPI_ACCESS_TOKEN;
 
+  const slug = order.productSlug === 'smoothflow' ? 'smoothflow' : 'milkimom';
+  const value = Number(order.price) || 0;
+
   if (!pixelId || !accessToken) {
-    console.warn(
-      '[Meta CAPI] META_PIXEL_ID / META_CAPI_ACCESS_TOKEN not configured — skipping Purchase event.'
-    );
-    return false;
+    const error = 'META_PIXEL_ID / META_CAPI_ACCESS_TOKEN not configured';
+    console.warn(`[Meta CAPI] ${error} — skipping Purchase event.`);
+    return { sent: false, value, error };
   }
 
   const event = {
     event_name: 'Purchase',
-    // Delivery confirmation time — the moment this became a real purchase.
-    event_time: Math.floor(Date.now() / 1000),
+    event_time: resolveEventTime(order),
     action_source: 'website',
     event_id: order._id.toString(),
     user_data: buildUserData(order),
+    // Product identity and price only. Which landing page sold it is the whole
+    // point — it is what lets one pixel report on two products separately.
     custom_data: {
       currency: 'BDT',
-      value: Number(order.price) || 0,
-      content_name: order.product || 'Milkimom Complete Dose',
+      value,
       content_type: 'product',
-      contents: [{ id: order.product || 'milkimom-complete-dose', quantity: 1 }],
+      content_ids: [slug],
+      content_name: PRODUCT_LABELS[slug],
+      content_category: slug,
+      contents: [{ id: slug, quantity: 1, item_price: value }],
+      order_id: order._id.toString(),
     },
   };
-  if (order.pageUrl) event.event_source_url = order.pageUrl;
+
+  const sourceUrl = order.pageUrl || order.attribution?.landingUrl;
+  if (sourceUrl) event.event_source_url = sourceUrl;
 
   const body = { data: [event] };
   if (process.env.META_TEST_EVENT_CODE) {
@@ -118,19 +194,20 @@ export async function sendMetaPurchase(order) {
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok || !result.events_received) {
+      const error = result?.error?.message || JSON.stringify(result?.error || result);
       console.error(
         `[Meta CAPI] Purchase rejected for order ${order._id} (${maskPhoneNumber(order.phone)}):`,
-        JSON.stringify(result?.error || result)
+        error
       );
-      return false;
+      return { sent: false, value, error };
     }
 
     console.log(
-      `[Meta CAPI] Purchase sent for delivered order ${order._id} (${maskPhoneNumber(order.phone)}), value ${event.custom_data.value} BDT`
+      `[Meta CAPI] Purchase sent for confirmed order ${order._id} (${maskPhoneNumber(order.phone)}) — ${slug}, ${value} BDT`
     );
-    return true;
+    return { sent: true, value, error: '' };
   } catch (err) {
     console.error(`[Meta CAPI] Request failed for order ${order._id}:`, err.message);
-    return false;
+    return { sent: false, value, error: err.message };
   }
 }
