@@ -7,6 +7,11 @@ const unfinishedOrderSchema = new mongoose.Schema(
       default: 'Milkimom Complete Dose',
       trim: true,
     },
+    productSlug: {
+      type: String,
+      enum: ['milkimom', 'smoothflow'],
+      default: 'milkimom',
+    },
     customerName: {
       type: String,
       default: 'Customer',

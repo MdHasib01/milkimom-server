@@ -285,7 +285,12 @@ flavourSchema.statics.resolvePrice = async function (flavourName, productSlug) {
 
   const regularPrice = regular ?? fallback.regularPrice;
   // An offer above the regular price is a data-entry mistake, not a discount.
-  const salePrice = offer && offer < regularPrice ? offer : regularPrice;
+  const salePrice =
+    offer && offer < regularPrice
+      ? offer
+      : slug === 'smoothflow'
+      ? fallback.salePrice
+      : regularPrice;
 
   return { regularPrice, salePrice };
 };

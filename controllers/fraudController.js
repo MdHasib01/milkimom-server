@@ -51,16 +51,13 @@ export async function checkIpAndFraud(req, res, next) {
 
     // Automatically log/update UnfinishedOrder when phone is checked
     if (normalizedPhone) {
+      const productSlug = req.body.productSlug === 'smoothflow' ? 'smoothflow' : 'milkimom';
       const targetFlavour = req.body.flavour || 'Dark Chocolate';
       let targetPrice = Number(req.body.price);
 
       if (!targetPrice || targetPrice === 1200) {
-        const flavourDoc = await Flavour.findByOrderFlavour(targetFlavour);
-        if (flavourDoc) {
-          targetPrice = flavourDoc.offerPrice || flavourDoc.price;
-        } else {
-          targetPrice = 4990;
-        }
+        const { salePrice } = await Flavour.resolvePrice(targetFlavour, productSlug);
+        targetPrice = salePrice;
       }
 
       UnfinishedOrder.updateOne(
@@ -71,6 +68,7 @@ export async function checkIpAndFraud(req, res, next) {
             ipAddress: clientIp,
             flavour: targetFlavour,
             price: targetPrice,
+            productSlug,
             updatedAt: new Date(),
             ...(req.body.product || req.body.productName ? { product: req.body.product || req.body.productName } : {}),
             ...(req.body.customerName ? { customerName: req.body.customerName.trim() } : {}),

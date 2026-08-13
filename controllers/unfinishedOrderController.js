@@ -22,16 +22,13 @@ export async function saveUnfinishedOrder(req, res, next) {
     const normalizedPhone = normalizePhoneNumber(phone);
     const clientIp = getClientIp(req);
 
+    const productSlug = req.body.productSlug === 'smoothflow' ? 'smoothflow' : 'milkimom';
     const targetFlavour = flavour || 'Dark Chocolate';
     let targetPrice = Number(price);
 
     if (!targetPrice || targetPrice === 1200) {
-      const flavourDoc = await Flavour.findByOrderFlavour(targetFlavour);
-      if (flavourDoc) {
-        targetPrice = flavourDoc.offerPrice || flavourDoc.price;
-      } else {
-        targetPrice = 4990;
-      }
+      const { salePrice } = await Flavour.resolvePrice(targetFlavour, productSlug);
+      targetPrice = salePrice;
     }
 
     let ipLocation = null;
@@ -47,6 +44,7 @@ export async function saveUnfinishedOrder(req, res, next) {
       address: address || '',
       flavour: targetFlavour,
       price: targetPrice,
+      productSlug,
       ipAddress: clientIp,
       updatedAt: new Date(),
     };
@@ -93,22 +91,12 @@ export async function getUnfinishedOrders(req, res, next) {
     ]);
 
     // Dynamically resolve product prices for returned unfinished orders
-    const catalogFlavours = await Flavour.getActiveOrDefaults();
     const orders = await Promise.all(
       rawOrders.map(async (doc) => {
         const order = doc.toObject ? doc.toObject() : { ...doc };
         if (!order.price || order.price === 1200) {
-          const flavourDoc = catalogFlavours.find(
-            (f) =>
-              (f.nameEn && f.nameEn.toLowerCase() === (order.flavour || '').toLowerCase()) ||
-              (f.name && f.name.toLowerCase() === (order.flavour || '').toLowerCase())
-          ) || (await Flavour.findByOrderFlavour(order.flavour));
-
-          if (flavourDoc) {
-            order.price = flavourDoc.offerPrice || flavourDoc.price;
-          } else {
-            order.price = 4990;
-          }
+          const { salePrice } = await Flavour.resolvePrice(order.flavour, order.productSlug);
+          order.price = salePrice;
         }
         return order;
       })
