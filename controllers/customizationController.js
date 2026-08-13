@@ -49,6 +49,7 @@ export async function getAdminThemes(req, res, next) {
   try {
     await LandingPageTheme.getThemeBySlug('milkimom');
     await LandingPageTheme.getThemeBySlug('smoothflow');
+    await LandingPageTheme.getThemeBySlug('milkready');
 
     const themes = await LandingPageTheme.find().sort({ productSlug: 1 });
     res.json({

@@ -20,6 +20,15 @@ export const DEFAULT_THEMES = {
     ctaTextColor: '#ffffff',     // White
     backgroundColor: '#FFF9FB',  // Soft Pinkish White
   },
+  milkready: {
+    productSlug: 'milkready',
+    name: 'MilkReady Landing',
+    themeColor: '#0284c7',       // Brand Sky Blue / Cyan
+    accentColor: '#38bdf8',      // Light Sky Blue
+    ctaColor: '#ffd100',         // Brand Yellow CTA
+    ctaTextColor: '#0f172a',     // Dark Text
+    backgroundColor: '#f8fbff',  // Soft Sky Cream White
+  },
 };
 
 const landingPageThemeSchema = new mongoose.Schema(
