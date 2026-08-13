@@ -25,8 +25,8 @@ export const DEFAULT_THEMES = {
     name: 'MilkReady Landing',
     themeColor: '#0284c7',       // Brand Sky Blue / Cyan
     accentColor: '#38bdf8',      // Light Sky Blue
-    ctaColor: '#ffd100',         // Brand Yellow CTA
-    ctaTextColor: '#0f172a',     // Dark Text
+    ctaColor: '#0284c7',         // Primary CTA Blue
+    ctaTextColor: '#ffffff',     // White
     backgroundColor: '#f8fbff',  // Soft Sky Cream White
   },
 };
@@ -104,6 +104,10 @@ landingPageThemeSchema.statics.getThemeBySlug = async function (slug = 'milkimom
     });
   } else if (normalizedSlug === 'smoothflow' && theme.themeColor !== '#E6106E') {
     theme.themeColor = '#E6106E';
+    await theme.save();
+  } else if (normalizedSlug === 'milkready' && (theme.ctaColor !== '#0284c7' || theme.ctaTextColor !== '#ffffff')) {
+    theme.ctaColor = '#0284c7';
+    theme.ctaTextColor = '#ffffff';
     await theme.save();
   }
 
