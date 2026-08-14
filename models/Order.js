@@ -13,7 +13,7 @@ const orderSchema = new mongoose.Schema(
     // Meta Purchase reports as content_ids.
     productSlug: {
       type: String,
-      enum: ['milkimom', 'smoothflow'],
+      enum: ['milkimom', 'smoothflow', 'milkready'],
       default: 'milkimom',
       index: true,
     },

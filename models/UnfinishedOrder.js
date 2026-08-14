@@ -9,7 +9,7 @@ const unfinishedOrderSchema = new mongoose.Schema(
     },
     productSlug: {
       type: String,
-      enum: ['milkimom', 'smoothflow'],
+      enum: ['milkimom', 'smoothflow', 'milkready'],
       default: 'milkimom',
     },
     customerName: {

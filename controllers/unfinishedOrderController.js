@@ -22,7 +22,8 @@ export async function saveUnfinishedOrder(req, res, next) {
     const normalizedPhone = normalizePhoneNumber(phone);
     const clientIp = getClientIp(req);
 
-    const productSlug = req.body.productSlug === 'smoothflow' ? 'smoothflow' : 'milkimom';
+    const rawSlug = String(req.body.productSlug || '').toLowerCase().trim();
+    const productSlug = rawSlug === 'smoothflow' ? 'smoothflow' : rawSlug === 'milkready' ? 'milkready' : 'milkimom';
     const targetFlavour = flavour || 'Dark Chocolate';
     let targetPrice = Number(price);
 

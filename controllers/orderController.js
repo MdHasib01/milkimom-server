@@ -22,6 +22,7 @@ const FLAVOUR_MAP = {
 const PRODUCT_NAMES = {
   milkimom: 'Milkimom Complete Dose',
   smoothflow: 'SmoothFlow Complete Dose',
+  milkready: 'MilkReady Complete Dose',
 };
 
 /**
