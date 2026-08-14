@@ -52,7 +52,10 @@ const ATTRIBUTION_KEYS = [
 ];
 
 function normalizeProductSlug(slug) {
-  return slug === 'smoothflow' ? 'smoothflow' : 'milkimom';
+  const s = String(slug || '').toLowerCase().trim();
+  if (s === 'smoothflow') return 'smoothflow';
+  if (s === 'milkready') return 'milkready';
+  return 'milkimom';
 }
 
 /**

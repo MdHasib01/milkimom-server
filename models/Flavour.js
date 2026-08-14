@@ -251,6 +251,7 @@ flavourSchema.statics.findByOrderFlavour = async function (flavourName) {
 export const FALLBACK_PRICES = {
   milkimom: { regularPrice: 8990, salePrice: 4990 },
   smoothflow: { regularPrice: 3450, salePrice: 1999 },
+  milkready: { regularPrice: 5650, salePrice: 3399 },
 };
 
 /** A usable price is a finite number greater than zero. */
@@ -268,8 +269,13 @@ function usablePrice(value) {
  * Returns { regularPrice, salePrice }; salePrice is what the customer pays.
  */
 flavourSchema.statics.resolvePrice = async function (flavourName, productSlug) {
-  const slug = productSlug === 'smoothflow' ? 'smoothflow' : 'milkimom';
+  const s = String(productSlug || '').toLowerCase().trim();
+  const slug = s === 'smoothflow' ? 'smoothflow' : s === 'milkready' ? 'milkready' : 'milkimom';
   const fallback = FALLBACK_PRICES[slug];
+
+  if (slug === 'milkready') {
+    return { regularPrice: 5650, salePrice: 3399 };
+  }
 
   const flavour = await this.findByOrderFlavour(flavourName).catch(() => null);
   if (!flavour) return { ...fallback };
