@@ -127,7 +127,7 @@ export const DEFAULT_CONTENTS = {
     heroSubtitle: 'Delivery-এর আগের শেষ ৩ মাসের মধ্যে ১ ডোজ MilkReady—ডেলিভারি এর পরে বুকের দুধ নিশ্চিত করে',
     heroSubtitleHighlight: '১ ডোজ MilkReady',
     heroCtaText: 'MilkReady অর্ডার করতে ক্লিক করুন',
-    heroImage: '/images/milkready/product-jar.png',
+    heroImage: '/images/milkready/product-jar.webp',
     doctorTitle: 'বিশ্বাস রাখার কারণসমূহ',
     doctorName: 'Dr. Farhana',
     doctorDegree: 'MBBS, FCPS (OBGYN)',
@@ -144,7 +144,7 @@ export const DEFAULT_CONTENTS = {
     howItWorksBadge: 'উপকারিতা',
     howItWorksTitle: 'MilkReady এর উপকারিতা',
     howItWorksSubtitle: 'প্রকৃতি ও বিজ্ঞানের সমন্বয়ে তৈরি MilkReady মা ও শিশু উভয়ের জন্যই প্রসবপূর্ব প্রস্তুতি নিশ্চিত করে।',
-    howItWorksImage: '/images/milkready/product-jar.png',
+    howItWorksImage: '/images/milkready/product-jar.webp',
     benefitsItems: [
       { id: '1', accent: 'ব্রেস্টফিডিং প্রিপারেশন', rest: 'নিশ্চিত করে', sortOrder: 1 },
       { id: '2', accent: 'ম্যাটারনাল নিউট্রিশন সাপোর্ট', rest: 'দেয়', sortOrder: 2 },
