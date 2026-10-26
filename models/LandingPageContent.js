@@ -124,8 +124,8 @@ export const DEFAULT_CONTENTS = {
     heroBadge: 'ডেলিভারি পূর্ববর্তী প্রস্তুতি',
     heroTitle: 'ডেলিভারির পর বুকের দুধ না হওয়ার ভয়? প্রস্তুতি নিন আগেই।',
     heroTitleHighlight: 'প্রস্তুতি নিন আগেই।',
-    heroSubtitle: 'Delivery-এর আগের শেষ ৩ মাসের মধ্যে ১ ডোজ MilkReady—ডেলিভারি এর পরে বুকের দুধ নিশ্চিত করে',
-    heroSubtitleHighlight: '১ ডোজ MilkReady',
+    heroSubtitle: 'প্রেগন্যান্সিতে ১ ডোজ মিল্করেডি খেলে, বাচ্চা জন্মের শুরুতেই পর্যাপ্ত বুকের দুধ পায়, ফর্মুলা দেওয়া লাগে না।',
+    heroSubtitleHighlight: '১ ডোজ মিল্করেডি',
     heroCtaText: 'MilkReady অর্ডার করতে ক্লিক করুন',
     heroImage: '/images/milkready/product-jar.webp',
     doctorTitle: 'বিশ্বাস রাখার কারণসমূহ',
@@ -265,6 +265,11 @@ landingPageContentSchema.statics.getContentBySlug = async function (slug = 'milk
     }
     if (normalizedSlug === 'smoothflow' && (!content.announcementText || content.announcementText.includes('৩৯%') || content.announcementText.includes('--'))) {
       content.announcementText = '42% Offer শেষ হতে বাকি';
+      needsSave = true;
+    }
+    if (normalizedSlug === 'milkready' && (!content.heroSubtitle || content.heroSubtitle.startsWith('Delivery-এর আগের শেষ ৩ মাসের মধ্যে'))) {
+      content.heroSubtitle = defaultData.heroSubtitle;
+      content.heroSubtitleHighlight = defaultData.heroSubtitleHighlight;
       needsSave = true;
     }
     if (needsSave) {
