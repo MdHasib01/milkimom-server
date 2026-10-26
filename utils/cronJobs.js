@@ -8,6 +8,8 @@ import { reportConfirmedPurchase, sweepUnreportedPurchases } from '../controller
  * Jobs:
  *  - Increments mother count every day at 12:00 AM midnight (0 0 * * *),
  *    range 200 to 500 randomly.
+ *  - Increments the MilkReady order count every day at 12:00 AM Asia/Dhaka,
+ *    range 200 to 300 randomly.
  *  - Steadfast hourly sync: first auto-enters any Confirmed/Shipped order
  *    that has no consignment yet (retries earlier failures — no manual send
  *    exists), then pulls delivery statuses; orders the courier reports
@@ -29,6 +31,23 @@ export const initCronJobs = () => {
   });
 
   console.log('[Cron] Daily 12:00 AM job scheduled successfully.');
+
+  // MilkReady "Mother ইতোমধ্যে MilkReady অর্ডার করেছেন" counter: +200-300 at
+  // 12:00 AM Bangladesh time, regardless of the host's timezone.
+  cron.schedule(
+    '0 0 * * *',
+    async () => {
+      console.log('[Cron] Running daily 12:00 AM MilkReady count update...');
+      try {
+        await incrementMotherCountRandomly({ product: 'milkready', min: 200, max: 300 });
+      } catch (error) {
+        console.error('[Cron Error] Failed to update MilkReady count:', error);
+      }
+    },
+    { timezone: 'Asia/Dhaka' }
+  );
+
+  console.log('[Cron] Daily 12:00 AM (Asia/Dhaka) MilkReady count job scheduled.');
 
   // Steadfast hourly sync — entry catch-up first, then delivery statuses.
   // Both workers are no-ops while the integration is disabled in Settings.

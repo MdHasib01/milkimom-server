@@ -31,12 +31,17 @@ const motherCountSchema = new mongoose.Schema(
   }
 );
 
-motherCountSchema.statics.getStats = async function () {
-  let stats = await this.findOne({ key: 'satisfied_mothers' });
+/**
+ * One document per counter. Milkimom's lives under the original
+ * 'satisfied_mothers' key; other products (e.g. MilkReady) get their own key
+ * and start from their own seed count the first time they are read.
+ */
+motherCountSchema.statics.getStats = async function (key = 'satisfied_mothers', defaultCount = 89746) {
+  let stats = await this.findOne({ key });
   if (!stats) {
     stats = await this.create({
-      key: 'satisfied_mothers',
-      count: 89746,
+      key,
+      count: defaultCount,
       lastUpdated: new Date(),
     });
   }
